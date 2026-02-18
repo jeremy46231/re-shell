@@ -85,6 +85,7 @@
             pkgs.jq # JSON processor
             pkgs.sqlite # SQLite CLI (inspect app databases)
             pkgs.openssl # Certificate and crypto utilities
+            pkgs.uv # Fast Python package manager for ad-hoc dependencies
 
             # --- Python environment for scripting ---
             (pkgs.python3.withPackages (ps: [

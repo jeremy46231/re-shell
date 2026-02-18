@@ -94,6 +94,10 @@ A Python 3 interpreter is included with these libraries pre-installed:
 
 `unzip`, `7z` (p7zip), `file`, `jq`, `sqlite3`, `openssl` -- standard tools for archive extraction, file identification, JSON processing, database inspection, and certificate handling.
 
+| Tool | Command | Description |
+|------|---------|-------------|
+| uv | `uv pip install <pkg> --python $(which python3)` | Fast Python package installer for ad-hoc dependencies outside the Nix environment |
+
 ## Common Workflows
 
 ### Full APK static analysis
@@ -163,6 +167,44 @@ simg2img system.img system.raw.img
 # Mount and inspect
 mkdir mnt && sudo mount -o loop system.raw.img mnt/
 ```
+
+### Ad-hoc Python packages with uv
+
+Use `uv` to quickly install Python packages that aren't part of the Nix-managed Python environment. This is useful for one-off scripts or exploratory analysis where you need a library not bundled in the dev shell.
+
+```sh
+# Install a package into the Nix Python environment
+uv pip install protobuf --python $(which python3)
+
+# Run a one-off script with a dependency not in the environment
+uv run --python $(which python3) --with cryptography script.py
+
+# Start a REPL with extra packages available
+uv run --python $(which python3) --with pycryptodome ipython
+```
+
+The `--python $(which python3)` flag ensures uv uses the Nix-provided Python interpreter so installed packages are compatible with the rest of the environment. Packages installed this way are ephemeral and will not persist across shell restarts. For packages you need regularly, add them permanently to `flake.nix` instead (see below).
+
+## Augmenting the Environment
+
+When a task calls for a tool or library not currently in the dev shell, you have two options:
+
+### Temporary: ad-hoc install with uv (Python packages only)
+
+See the [uv workflow above](#ad-hoc-python-packages-with-uv). Good for one-off exploration.
+
+### Permanent: add to flake.nix
+
+For tools or libraries you'll need repeatedly, add them directly to `flake.nix`:
+
+1. **Search nixpkgs** for the package using the `/nix-package-search` skill (e.g., `/nix-package-search protobuf`).
+2. **Edit `flake.nix`** to add the package to the appropriate section:
+   - Nix packages go in the `packages` list (e.g., `pkgs.protobuf`).
+   - Python libraries go inside the `python3.withPackages` call (e.g., `ps.protobuf`).
+3. **Reload the environment** by running `direnv reload` (or exiting and re-entering `nix develop`).
+4. **Update `CLAUDE.md`** to document the new tool in the matching table section so the documentation stays in sync with the flake.
+
+You are encouraged to self-modify `flake.nix` and this file whenever the analysis requires a tool that should be part of the standard environment. Keep the existing organizational structure (category comments, table format) when adding entries.
 
 ## Notes
 
