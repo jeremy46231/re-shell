@@ -8,6 +8,21 @@
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    pyproject-nix = {
+      url = "github:pyproject-nix/pyproject.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    uv2nix = {
+      url = "github:pyproject-nix/uv2nix";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    pyproject-build-systems = {
+      url = "github:pyproject-nix/build-system-pkgs";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.uv2nix.follows = "uv2nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -16,10 +31,16 @@
       nixpkgs,
       systems,
       treefmt-nix,
+      pyproject-nix,
+      uv2nix,
+      pyproject-build-systems,
       ...
     }:
     let
-      eachSystem = f: nixpkgs.lib.genAttrs (import systems) (system: f nixpkgs.legacyPackages.${system});
+      inherit (nixpkgs) lib;
+
+      eachSystem = f: lib.genAttrs (import systems) (system: f nixpkgs.legacyPackages.${system});
+
       treefmtEval = eachSystem (
         pkgs:
         treefmt-nix.lib.evalModule pkgs {
@@ -27,85 +48,123 @@
           programs.nixfmt.enable = true;
         }
       );
+
+      # Load the uv workspace from pyproject.toml + uv.lock
+      workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = ./.; };
+
+      # Build a package overlay from the workspace lockfile
+      overlay = workspace.mkPyprojectOverlay {
+        sourcePreference = "wheel";
+      };
     in
     {
-      devShells = eachSystem (pkgs: {
-        default = pkgs.mkShell {
-          packages = [
-            self.formatter.${pkgs.stdenv.hostPlatform.system}
+      devShells = eachSystem (
+        pkgs:
+        let
+          python = pkgs.python3;
 
-            # --- APK disassembly & manipulation ---
-            pkgs.apktool # Decode/rebuild APKs (resources, smali)
-            pkgs.apkeditor # APK resource editor
-            pkgs.apksigner # Sign and verify APKs
-            pkgs.apksigcopier # Copy/extract/patch APK signatures
-            pkgs.apkid # Android application identifier (compiler/packer/obfuscator detection)
-            pkgs.aapt # Android Asset Packaging Tool
-            pkgs.bundletool # Manipulate Android App Bundles (.aab)
+          # Construct the Python package set from workspace + overlays
+          pythonSet =
+            (pkgs.callPackage pyproject-nix.build.packages {
+              inherit python;
+            }).overrideScope
+              (
+                lib.composeManyExtensions [
+                  pyproject-build-systems.overlays.default
+                  overlay
+                  # Add dependency fixups here as needed, e.g.:
+                  # (_final: prev: {
+                  #   some-package = prev.some-package.overrideAttrs (old: {
+                  #     buildInputs = (old.buildInputs or []) ++ [ pkgs.some-lib ];
+                  #   });
+                  # })
+                ]
+              );
 
-            # --- Java/DEX decompilation ---
-            pkgs.jadx # Dex-to-Java decompiler (CLI + GUI)
-            pkgs.dex2jar # Convert DEX to JAR for Java decompilers
-            pkgs.bytecode-viewer # Multi-decompiler bytecode viewer (GUI)
+          # Build the virtualenv from workspace dependencies
+          venv = pythonSet.mkVirtualEnv "android-re-env" workspace.deps.default;
+        in
+        {
+          default = pkgs.mkShell {
+            packages = [
+              self.formatter.${pkgs.stdenv.hostPlatform.system}
+              venv
+              pkgs.uv
 
-            # --- Native binary reverse engineering ---
-            pkgs.ghidra # NSA's SRE suite (disassembler + decompiler)
-            pkgs.radare2 # UNIX-like RE framework and CLI toolset
-            pkgs.rizin # Modern fork of radare2
-            pkgs.binwalk # Firmware/binary analysis and extraction
+              # --- APK disassembly & manipulation ---
+              pkgs.apktool # Decode/rebuild APKs (resources, smali)
+              pkgs.apkeditor # APK resource editor
+              pkgs.apksigner # Sign and verify APKs
+              pkgs.apksigcopier # Copy/extract/patch APK signatures
+              pkgs.apkid # Android application identifier (compiler/packer/obfuscator detection)
+              pkgs.aapt # Android Asset Packaging Tool
+              pkgs.bundletool # Manipulate Android App Bundles (.aab)
 
-            # --- Dynamic instrumentation ---
-            pkgs.frida-tools # Frida CLI tools (frida, frida-ps, frida-trace, etc.)
-            pkgs.jnitrace # Frida-based JNI API tracer for Android apps
+              # --- Java/DEX decompilation ---
+              pkgs.jadx # Dex-to-Java decompiler (CLI + GUI)
+              pkgs.dex2jar # Convert DEX to JAR for Java decompilers
+              pkgs.bytecode-viewer # Multi-decompiler bytecode viewer (GUI)
 
-            # --- Static analysis & security scanning ---
-            pkgs.trueseeing # Non-decompiling Android vulnerability scanner
-            pkgs.quark-engine # Android malware analysis and scoring
-            pkgs.yara # Pattern matching for malware research
-            pkgs.koodousfinder # Search and analyze Android apps
+              # --- Native binary reverse engineering ---
+              pkgs.ghidra # NSA's SRE suite (disassembler + decompiler)
+              pkgs.radare2 # UNIX-like RE framework and CLI toolset
+              pkgs.rizin # Modern fork of radare2
+              pkgs.binwalk # Firmware/binary analysis and extraction
 
-            # --- Network interception ---
-            pkgs.mitmproxy # HTTPS man-in-the-middle proxy
-            pkgs.wireshark-cli # Network protocol analyzer (tshark)
+              # --- Dynamic instrumentation ---
+              pkgs.frida-tools # Frida CLI tools (frida, frida-ps, frida-trace, etc.)
+              pkgs.jnitrace # Frida-based JNI API tracer for Android apps
 
-            # --- ADB & device interaction ---
-            pkgs.android-tools # ADB + fastboot
-            pkgs.scrcpy # Display/control Android devices over USB/TCP
+              # --- Static analysis & security scanning ---
+              pkgs.trueseeing # Non-decompiling Android vulnerability scanner
+              pkgs.quark-engine # Android malware analysis and scoring
+              pkgs.yara # Pattern matching for malware research
+              pkgs.koodousfinder # Search and analyze Android apps
 
-            # --- Android image & OTA tools ---
-            pkgs.simg2img # Sparse image to raw image converter
-            pkgs.sdat2img # .dat sparse data to ext4 image converter
-            pkgs.payload-dumper-go # Extract partitions from Android OTA payloads
-            pkgs.imgpatchtools # Manipulate Android OTA archives
+              # --- Network interception ---
+              pkgs.mitmproxy # HTTPS man-in-the-middle proxy
+              pkgs.wireshark-cli # Network protocol analyzer (tshark)
 
-            # --- General-purpose utilities ---
-            pkgs.unzip # ZIP extraction
-            pkgs.p7zip # 7-Zip archive tool
-            pkgs.file # File type identification
-            pkgs.jq # JSON processor
-            pkgs.sqlite # SQLite CLI (inspect app databases)
-            pkgs.openssl # Certificate and crypto utilities
-            pkgs.uv # Fast Python package manager for ad-hoc dependencies
+              # --- ADB & device interaction ---
+              pkgs.android-tools # ADB + fastboot
+              pkgs.scrcpy # Display/control Android devices over USB/TCP
 
-            # --- Python environment for scripting ---
-            (pkgs.python3.withPackages (ps: [
-              ps.frida-python # Frida Python bindings
-              ps.yara-python # YARA Python bindings
-              ps.pyaxmlparser # Parse Android XML (AndroidManifest) without full androguard
-              ps.ipython # Interactive Python shell
-            ]))
-          ];
+              # --- Android image & OTA tools ---
+              pkgs.simg2img # Sparse image to raw image converter
+              pkgs.sdat2img # .dat sparse data to ext4 image converter
+              pkgs.payload-dumper-go # Extract partitions from Android OTA payloads
+              pkgs.imgpatchtools # Manipulate Android OTA archives
 
-          env = {
-            # Ensure Ghidra can find a JDK
-            GHIDRA_JAVA_HOME = "${pkgs.jdk}/lib/openjdk";
+              # --- General-purpose utilities ---
+              pkgs.unzip # ZIP extraction
+              pkgs.p7zip # 7-Zip archive tool
+              pkgs.file # File type identification
+              pkgs.jq # JSON processor
+              pkgs.sqlite # SQLite CLI (inspect app databases)
+              pkgs.openssl # Certificate and crypto utilities
+            ];
+
+            env = {
+              # Ensure Ghidra can find a JDK
+              GHIDRA_JAVA_HOME = "${pkgs.jdk}/lib/openjdk";
+
+              # Don't let uv create/sync its own venv -- Nix manages it
+              UV_NO_SYNC = "1";
+
+              # Force uv to use the Nix-built Python
+              UV_PYTHON = "${venv}/bin/python";
+
+              # Prevent uv from downloading its own Python
+              UV_PYTHON_DOWNLOADS = "never";
+            };
+
+            shellHook = ''
+              unset PYTHONPATH
+              echo "Android RE environment loaded. See CLAUDE.md for tool documentation."
+            '';
           };
-
-          shellHook = ''
-            echo "Android RE environment loaded. See CLAUDE.md for tool documentation."
-          '';
-        };
-      });
+        }
+      );
 
       formatter = eachSystem (pkgs: treefmtEval.${pkgs.stdenv.hostPlatform.system}.config.build.wrapper);
 

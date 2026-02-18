@@ -21,7 +21,7 @@ Never leave tool output in the repo root or in ad-hoc directories outside these 
 
 ## Environment Structure
 
-The dev shell is defined in `flake.nix` and organized into tool categories. A bundled Python 3 environment provides scripting libraries (Frida, YARA, pyaxmlparser, IPython). Ghidra's JDK is configured via `GHIDRA_JAVA_HOME`.
+The dev shell is defined in `flake.nix` and organized into tool categories. Python dependencies are declared in `pyproject.toml`, locked by `uv.lock`, and built into a Nix virtualenv via [uv2nix](https://github.com/pyproject-nix/uv2nix). Ghidra's JDK is configured via `GHIDRA_JAVA_HOME`.
 
 ## Installed Tools
 
@@ -98,7 +98,7 @@ The dev shell is defined in `flake.nix` and organized into tool categories. A bu
 
 ### Python Scripting Environment
 
-A Python 3 interpreter is included with these libraries pre-installed:
+Python dependencies are managed via `pyproject.toml` and `uv.lock`, built into a Nix virtualenv by uv2nix. The following libraries are pre-installed:
 
 | Library | Import | Description |
 |---------|--------|-------------|
@@ -107,13 +107,15 @@ A Python 3 interpreter is included with these libraries pre-installed:
 | pyaxmlparser | `import pyaxmlparser` | Parse AndroidManifest.xml and extract app metadata |
 | IPython | `ipython` | Enhanced interactive Python shell for exploratory analysis |
 
+To add a Python package permanently, run `uv add <package>` then `direnv reload`. See [Augmenting the Environment](#augmenting-the-environment).
+
 ### General Utilities
 
 `unzip`, `7z` (p7zip), `file`, `jq`, `sqlite3`, `openssl` -- standard tools for archive extraction, file identification, JSON processing, database inspection, and certificate handling.
 
 | Tool | Command | Description |
 |------|---------|-------------|
-| uv | `uv pip install <pkg> --python $(which python3)` | Fast Python package installer for ad-hoc dependencies outside the Nix environment |
+| uv | `uv add <pkg>` | Python package manager; add dependencies to pyproject.toml and uv.lock, then `direnv reload` to rebuild |
 
 ## Common Workflows
 
@@ -185,22 +187,27 @@ simg2img system.img system.raw.img
 mkdir mnt && sudo mount -o loop system.raw.img mnt/
 ```
 
-### Ad-hoc Python packages with uv
+### Adding Python packages with uv
 
-Use `uv` to quickly install Python packages that aren't part of the Nix-managed Python environment. This is useful for one-off scripts or exploratory analysis where you need a library not bundled in the dev shell.
+Python dependencies are managed through `pyproject.toml` and built natively by Nix via uv2nix. To add a package:
 
 ```sh
-# Install a package into the Nix Python environment
-uv pip install protobuf --python $(which python3)
+# Add a dependency (updates pyproject.toml and uv.lock)
+uv add protobuf
 
-# Run a one-off script with a dependency not in the environment
-uv run --python $(which python3) --with cryptography script.py
-
-# Start a REPL with extra packages available
-uv run --python $(which python3) --with pycryptodome ipython
+# Rebuild the Nix environment with the new dependency
+direnv reload
 ```
 
-The `--python $(which python3)` flag ensures uv uses the Nix-provided Python interpreter so installed packages are compatible with the rest of the environment. Packages installed this way are ephemeral and will not persist across shell restarts. For packages you need regularly, add them permanently to `flake.nix` instead (see below).
+For temporary/one-off usage without modifying the project, use `uv run`:
+
+```sh
+# Run a one-off script with a dependency not in the environment
+uv run --with cryptography script.py
+
+# Start a REPL with extra packages available
+uv run --with pycryptodome ipython
+```
 
 ## Augmenting the Environment
 
@@ -208,20 +215,25 @@ When a task calls for a tool or library not currently in the dev shell, you have
 
 ### Temporary: ad-hoc install with uv (Python packages only)
 
-See the [uv workflow above](#ad-hoc-python-packages-with-uv). Good for one-off exploration.
+See the [uv workflow above](#adding-python-packages-with-uv). Good for one-off exploration using `uv run --with <pkg>`.
 
-### Permanent: add to flake.nix
+### Permanent: add to the environment
 
-For tools or libraries you'll need repeatedly, add them directly to `flake.nix`:
+**For Python libraries**, use uv to add them to `pyproject.toml`:
+
+1. Run `uv add <package>` (updates `pyproject.toml` and `uv.lock`).
+2. Run `direnv reload` to rebuild the Nix virtualenv with the new dependency.
+3. If the package needs native libraries or build fixups, add overrides to the `dependencyFixups` section in `flake.nix`. See comments there for examples.
+4. **Update `CLAUDE.md`** to document the new library in the Python Scripting Environment table.
+
+**For non-Python tools**, add them to `flake.nix`:
 
 1. **Search nixpkgs** for the package using the `/nix-package-search` skill (e.g., `/nix-package-search protobuf`).
-2. **Edit `flake.nix`** to add the package to the appropriate section:
-   - Nix packages go in the `packages` list (e.g., `pkgs.protobuf`).
-   - Python libraries go inside the `python3.withPackages` call (e.g., `ps.protobuf`).
+2. **Edit `flake.nix`** to add the package to the `packages` list (e.g., `pkgs.protobuf`).
 3. **Reload the environment** by running `direnv reload` (or exiting and re-entering `nix develop`).
 4. **Update `CLAUDE.md`** to document the new tool in the matching table section so the documentation stays in sync with the flake.
 
-You are encouraged to self-modify `flake.nix` and this file whenever the analysis requires a tool that should be part of the standard environment. Keep the existing organizational structure (category comments, table format) when adding entries.
+You are encouraged to self-modify `flake.nix`, `pyproject.toml`, and this file whenever the analysis requires a tool that should be part of the standard environment. Keep the existing organizational structure (category comments, table format) when adding entries.
 
 ## Notes
 
