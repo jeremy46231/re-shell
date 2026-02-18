@@ -1,5 +1,7 @@
 /.direnv
+/node_modules
 /result
+/.ruff_cache
 /tmp
 *.apk
 *.xapk

@@ -63,6 +63,12 @@
         let
           python = pkgs.python3;
 
+          # Build Node.js dependencies from package-lock.json
+          nodeModules = pkgs.importNpmLock.buildNodeModules {
+            npmRoot = self;
+            inherit (pkgs) nodejs;
+          };
+
           # Construct the Python package set from workspace + overlays
           pythonSet =
             (pkgs.callPackage pyproject-nix.build.packages {
@@ -90,6 +96,8 @@
               self.formatter.${pkgs.stdenv.hostPlatform.system}
               venv
               pkgs.uv
+              pkgs.nodejs
+              pkgs.importNpmLock.hooks.linkNodeModulesHook
 
               # --- APK disassembly & manipulation ---
               pkgs.apktool # Decode/rebuild APKs (resources, smali)
@@ -144,6 +152,8 @@
               pkgs.openssl # Certificate and crypto utilities
             ];
 
+            npmDeps = nodeModules;
+
             env = {
               # Ensure Ghidra can find a JDK
               GHIDRA_JAVA_HOME = "${pkgs.jdk}/lib/openjdk";
@@ -160,6 +170,9 @@
 
             shellHook = ''
               unset PYTHONPATH
+              if [ -d "$npmDeps/node_modules" ]; then
+                linkNodeModulesHook
+              fi
               echo "Android RE environment loaded. See CLAUDE.md for tool documentation."
             '';
           };

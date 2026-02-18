@@ -21,7 +21,7 @@ Never leave tool output in the repo root or in ad-hoc directories outside these 
 
 ## Environment Structure
 
-The dev shell is defined in `flake.nix` and organized into tool categories. Python dependencies are declared in `pyproject.toml`, locked by `uv.lock`, and built into a Nix virtualenv via [uv2nix](https://github.com/pyproject-nix/uv2nix). Ghidra's JDK is configured via `GHIDRA_JAVA_HOME`.
+The dev shell is defined in `flake.nix` and organized into tool categories. Python dependencies are declared in `pyproject.toml`, locked by `uv.lock`, and built into a Nix virtualenv via [uv2nix](https://github.com/pyproject-nix/uv2nix). Node.js dependencies are declared in `package.json`, locked by `package-lock.json`, and built via `importNpmLock`; bin scripts from npm packages are automatically on PATH. Ghidra's JDK is configured via `GHIDRA_JAVA_HOME`.
 
 ## Installed Tools
 
@@ -109,6 +109,16 @@ Python dependencies are managed via `pyproject.toml` and `uv.lock`, built into a
 
 To add a Python package permanently, run `uv add <package>` then `direnv reload`. See [Augmenting the Environment](#augmenting-the-environment).
 
+### Node.js Scripting Environment
+
+Node.js dependencies are managed via `package.json` and `package-lock.json`, built into a Nix-managed `node_modules` by `importNpmLock`. Bin scripts from installed packages are automatically available on PATH via `linkNodeModulesHook`.
+
+| Tool | Command | Description |
+|------|---------|-------------|
+| apk-mitm | `apk-mitm app.apk` | Patch APKs to bypass certificate pinning for MITM traffic interception |
+
+To add a Node.js package permanently, run `npm install <package>` then `direnv reload`. See [Augmenting the Environment](#augmenting-the-environment). Note that npm packages with native install scripts that download binaries (e.g., the `frida` npm package) will fail in the Nix sandbox -- use nixpkgs equivalents for those.
+
 ### General Utilities
 
 `unzip`, `7z` (p7zip), `file`, `jq`, `sqlite3`, `openssl` -- standard tools for archive extraction, file identification, JSON processing, database inspection, and certificate handling.
@@ -116,6 +126,7 @@ To add a Python package permanently, run `uv add <package>` then `direnv reload`
 | Tool | Command | Description |
 |------|---------|-------------|
 | uv | `uv add <pkg>` | Python package manager; add dependencies to pyproject.toml and uv.lock, then `direnv reload` to rebuild |
+| npm | `npm install <pkg>` | Node.js package manager; add dependencies to package.json and package-lock.json, then `direnv reload` to rebuild |
 
 ## Common Workflows
 
@@ -209,13 +220,35 @@ uv run --with cryptography script.py
 uv run --with pycryptodome ipython
 ```
 
+### Adding Node.js packages with npm
+
+Node.js dependencies are managed through `package.json` and built natively by Nix via `importNpmLock`. To add a package:
+
+```sh
+# Add a dependency (updates package.json and package-lock.json)
+npm install some-tool
+
+# Rebuild the Nix environment with the new dependency
+direnv reload
+```
+
+Bin scripts from installed packages are automatically available on PATH (e.g., installing a package that provides a CLI tool makes it directly runnable).
+
+For temporary/one-off usage without modifying the project, use `npx`:
+
+```sh
+# Run a one-off tool without installing
+npx some-tool@latest
+```
+
 ## Augmenting the Environment
 
-When a task calls for a tool or library not currently in the dev shell, you have two options:
+When a task calls for a tool or library not currently in the dev shell, you have several options:
 
-### Temporary: ad-hoc install with uv (Python packages only)
+### Temporary: ad-hoc install
 
-See the [uv workflow above](#adding-python-packages-with-uv). Good for one-off exploration using `uv run --with <pkg>`.
+- **Python**: `uv run --with <pkg>` for one-off exploration. See [uv workflow above](#adding-python-packages-with-uv).
+- **Node.js**: `npx <pkg>` for one-off CLI tools. See [npm workflow above](#adding-nodejs-packages-with-npm).
 
 ### Permanent: add to the environment
 
@@ -226,14 +259,20 @@ See the [uv workflow above](#adding-python-packages-with-uv). Good for one-off e
 3. If the package needs native libraries or build fixups, add overrides to the `dependencyFixups` section in `flake.nix`. See comments there for examples.
 4. **Update `CLAUDE.md`** to document the new library in the Python Scripting Environment table.
 
-**For non-Python tools**, add them to `flake.nix`:
+**For Node.js packages**, use npm to add them to `package.json`:
+
+1. Run `npm install <package>` (updates `package.json` and `package-lock.json`).
+2. Run `direnv reload` to rebuild the Nix node_modules with the new dependency.
+3. **Update `CLAUDE.md`** to document the new tool in the Node.js Scripting Environment section.
+
+**For non-Python/non-Node tools**, add them to `flake.nix`:
 
 1. **Search nixpkgs** for the package using the `/nix-package-search` skill (e.g., `/nix-package-search protobuf`).
 2. **Edit `flake.nix`** to add the package to the `packages` list (e.g., `pkgs.protobuf`).
 3. **Reload the environment** by running `direnv reload` (or exiting and re-entering `nix develop`).
 4. **Update `CLAUDE.md`** to document the new tool in the matching table section so the documentation stays in sync with the flake.
 
-You are encouraged to self-modify `flake.nix`, `pyproject.toml`, and this file whenever the analysis requires a tool that should be part of the standard environment. Keep the existing organizational structure (category comments, table format) when adding entries.
+You are encouraged to self-modify `flake.nix`, `pyproject.toml`, `package.json`, and this file whenever the analysis requires a tool that should be part of the standard environment. Keep the existing organizational structure (category comments, table format) when adding entries.
 
 ## Notes
 
