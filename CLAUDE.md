@@ -2,6 +2,23 @@
 
 Nix flake-based development shell providing a comprehensive toolkit for Android APK and native binary reverse engineering. Enter the environment with `nix develop` or via direnv.
 
+## Output Directory Convention
+
+All reverse engineering work products must go in one of two locations:
+
+- **`tmp/`** -- Intermediate and throwaway side products: decompiled source, disassembly output, extracted APK contents, unpacked resources, Ghidra projects, scratch scripts, etc. This directory is in `.gitignore` and will not be committed. Create subdirectories freely (e.g., `tmp/jadx_com.example.app/`, `tmp/extracted/`).
+- **`artifacts/<package.namespace>/`** -- Final, requested deliverables: analysis reports, annotated code snippets, Frida hook scripts, YARA rules, patch files, or anything the user explicitly asks to keep. Use the app's package namespace (e.g., `com.example.app`) as the subdirectory name. This directory is tracked by git.
+
+When running tools, always direct output into `tmp/` rather than the repo root. Examples:
+
+```sh
+jadx -d tmp/jadx_com.example.app/ com.example.app.apk
+apktool d com.example.app.apk -o tmp/apktool_com.example.app/
+unzip com.example.app.apk -d tmp/extracted_com.example.app/
+```
+
+Never leave tool output in the repo root or in ad-hoc directories outside these two locations.
+
 ## Environment Structure
 
 The dev shell is defined in `flake.nix` and organized into tool categories. A bundled Python 3 environment provides scripting libraries (Frida, YARA, pyaxmlparser, IPython). Ghidra's JDK is configured via `GHIDRA_JAVA_HOME`.
