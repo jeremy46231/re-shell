@@ -24,7 +24,7 @@ This skill covers Windows-specific RE tools available in the dev shell. For gene
 | Tool | Command | Description |
 |------|---------|-------------|
 | ILSpyCmd | `ilspycmd -p -o tmp/src/ assembly.dll` | Decompile .NET assemblies to C# source (CLI) |
-| Avalonia ILSpy | `avalonia-ilspy` | Cross-platform GUI .NET decompiler (ILSpy port) |
+| Avalonia ILSpy | `ILSpy` | Cross-platform GUI .NET decompiler (ILSpy port) |
 
 ## String & Capability Analysis
 
@@ -91,7 +91,7 @@ yara rules.yar binary.exe
 ilspycmd -p -o tmp/ilspy_assembly/ assembly.dll
 
 # Or use the GUI decompiler
-avalonia-ilspy  # open assembly.dll
+ILSpy  # open assembly.dll
 
 # Inspect .NET metadata from Python
 python3 -c "import dnfile; dn = dnfile.dnPE('assembly.dll'); print(dn.net.metadata)"
@@ -169,7 +169,7 @@ mu.emu_start(0x1000, 0x1000 + len(code_bytes))
 ## Notes
 
 - PE-bear, Avalonia ILSpy, and ImHex require a display server for their GUIs. On headless/WSL systems, use an X server (e.g., VcXsrv) or use CLI alternatives (`diec`, `ilspycmd`, Python libraries).
-- `retdec` (RetDec decompiler) consumes significant memory for large binaries. Use Ghidra's decompiler for complex analysis.
+- `retdec` (RetDec decompiler) is not currently installed but is available in nixpkgs (`pkgs.retdec`). It consumes significant memory; use Ghidra's decompiler for most analysis.
 - Volatility 3 plugins are under the `windows.` namespace for Windows memory analysis. Use `vol --help` to list all available plugins.
 - `oletools` provides both Python APIs and CLI entry points (`olevba`, `oleid`, `rtfobj`, etc.) for analyzing Office/OLE documents.
 - `capstone` and `unicorn` are general-purpose but particularly useful for Windows x86/x64 shellcode and malware analysis.

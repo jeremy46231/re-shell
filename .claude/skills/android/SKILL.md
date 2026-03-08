@@ -16,11 +16,11 @@ This skill covers Android-specific RE tools available in the dev shell. For gene
 | Tool | Command | Description |
 |------|---------|-------------|
 | apktool | `apktool d app.apk` | Decode APKs to smali + resources; rebuild with `apktool b` |
-| apkeditor | `apkeditor` | Edit APK resources directly |
+| APKEditor | `APKEditor` | Edit APK resources directly |
 | apksigner | `apksigner sign --ks key.jks app.apk` | Sign and verify APK signatures (Android SDK) |
 | apksigcopier | `apksigcopier` | Copy, extract, or patch APK signature blocks between files |
 | APKiD | `apkid app.apk` | Identify compilers, packers, and obfuscators used to build an APK |
-| aapt | `aapt dump badging app.apk` | Inspect APK metadata, resources, and manifest |
+| aapt2 | `aapt2 dump badging app.apk` | Inspect APK metadata, resources, and manifest |
 | bundletool | `bundletool build-apks --bundle=app.aab --output=out.apks` | Convert Android App Bundles (.aab) to APK sets |
 
 ## Java/DEX Decompilation
@@ -63,7 +63,7 @@ This skill covers Android-specific RE tools available in the dev shell. For gene
 | simg2img | `simg2img system.img system.raw.img` | Convert Android sparse images to raw ext4 images |
 | sdat2img | `sdat2img system.transfer.list system.new.dat system.img` | Convert `.dat` sparse data files to ext4 images |
 | payload-dumper-go | `payload-dumper-go payload.bin` | Extract partition images from `payload.bin` in Android OTA updates |
-| imgpatchtools | `imgpatchtools` | Apply and manipulate Android OTA incremental patches |
+| imgpatchtools | `ApplyPatch` / `BlockImageUpdate` / `BlockImageVerify` / `imgdiff` | Apply and manipulate Android OTA incremental patches |
 
 ## Android Python Libraries
 

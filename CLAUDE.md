@@ -113,7 +113,7 @@ Discipline-specific Node.js tools are listed in their respective skill files. To
 ghidra  # import binary, save project to tmp/
 
 # Headless analysis
-analyzeHeadless tmp/ghidra_project ProjectName -import binary -postScript script.java
+ghidra-analyzeHeadless tmp/ghidra_project ProjectName -import binary -postScript script.java
 ```
 
 ### Quick CLI disassembly
@@ -211,7 +211,9 @@ When a task calls for a tool or library not currently in the dev shell, you have
 
 You are encouraged to self-modify `flake.nix`, `pyproject.toml`, `package.json`, skill files, and this file whenever the analysis requires a tool that should be part of the standard environment. Keep the existing organizational structure (category comments, table format) when adding entries.
 
+**Important:** When documenting a new tool, verify that the actual binary name on PATH matches what you write in the Command column. Nix package names often differ from binary names (e.g., `pkgs.aapt` provides `aapt2`, `pkgs.avalonia-ilspy` provides `ILSpy`, `pkgs.ghidra` wraps binaries with a `ghidra-` prefix). Run `which <command>` or check the package's `bin/` directory after `direnv reload` to confirm before documenting.
+
 ## Notes
 
-- Ghidra requires a display server for its GUI. On headless/WSL systems, use an X server (e.g., VcXsrv) or Ghidra's headless analyzer: `analyzeHeadless`.
+- Ghidra requires a display server for its GUI. On headless/WSL systems, use an X server (e.g., VcXsrv) or Ghidra's headless analyzer: `ghidra-analyzeHeadless`.
 - Frida requires a matching `frida-server` binary running on the target (device or host).
