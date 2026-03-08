@@ -17,6 +17,12 @@ dependencies = [
     "oletools",
     "pefile",
     "unicorn",
+    # Web
+    "beautifulsoup4",
+    "grpcio",
+    "grpcio-tools",
+    "haralyzer",
+    "protobuf",
 ]
 
 [build-system]

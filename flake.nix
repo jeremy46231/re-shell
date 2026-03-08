@@ -191,6 +191,22 @@
 
               # --- Windows: signing & verification ---
               pkgs.osslsigncode # Verify/manipulate Authenticode signatures on PE files
+
+              # --- Web: protocol buffers & gRPC ---
+              pkgs.protobuf # Protobuf compiler (protoc)
+              pkgs.protoscope # Inspect raw protobuf wire format without .proto files
+              pkgs.grpcurl # CLI client for gRPC services
+              pkgs.grpcui # Web UI for interacting with gRPC services
+
+              # --- Web: HTTP & TLS ---
+              pkgs.curl-impersonate # Curl with browser TLS fingerprints
+              pkgs.httpie # User-friendly HTTP client
+
+              # --- Web: WebSocket ---
+              pkgs.websocat # CLI WebSocket client
+
+              # --- Web: HTML parsing ---
+              pkgs.pup # CLI HTML parser (like jq for HTML)
             ];
 
             npmDeps = nodeModules;

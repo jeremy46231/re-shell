@@ -12,6 +12,7 @@ This environment is organized into a **general-purpose core** (this file) and **
 |-------|------|-------------|
 | Android RE | `.claude/skills/android/SKILL.md` | APK, DEX, smali, ADB, Android app analysis |
 | Windows RE | `.claude/skills/windows/SKILL.md` | PE, .exe, .dll, .sys, .NET, Windows binary analysis |
+| Web RE | `.claude/skills/web/SKILL.md` | Protobuf, gRPC, HAR, HTTP API, WebSocket, TLS fingerprint, web scraping |
 
 ### Adding a New Discipline
 
