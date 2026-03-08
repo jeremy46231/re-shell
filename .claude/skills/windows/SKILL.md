@@ -1,0 +1,175 @@
+---
+name: windows-re
+user-invocable: false
+description: >
+  Windows reverse engineering tools and workflows. Auto-activates when context involves
+  PE files, .exe, .dll, .sys, .NET assemblies, Windows drivers, Windows malware,
+  x86/x64 Windows binaries, or Windows-specific analysis.
+---
+
+# Windows Reverse Engineering
+
+This skill covers Windows-specific RE tools available in the dev shell. For general-purpose tools (Ghidra, radare2, rizin, binwalk, Frida, YARA, mitmproxy, etc.), see `CLAUDE.md`.
+
+## PE Analysis & Inspection
+
+| Tool | Command | Description |
+|------|---------|-------------|
+| PE-bear | `PE-bear binary.exe` | GUI PE viewer for headers, sections, imports, exports, resources, and overlays |
+| Detect It Easy | `diec binary.exe` | Identify compilers, packers, protectors, and linkers used to build a PE |
+| ImHex | `imhex binary.exe` | Hex editor with pattern language, data inspector, and PE structure templates |
+
+## .NET Decompilation
+
+| Tool | Command | Description |
+|------|---------|-------------|
+| ILSpyCmd | `ilspycmd -p -o tmp/src/ assembly.dll` | Decompile .NET assemblies to C# source (CLI) |
+| Avalonia ILSpy | `avalonia-ilspy` | Cross-platform GUI .NET decompiler (ILSpy port) |
+
+## String & Capability Analysis
+
+| Tool | Command | Description |
+|------|---------|-------------|
+| FLARE-FLOSS | `floss binary.exe` | Extract obfuscated strings, stack strings, and decoded strings from malware |
+
+## Memory Forensics
+
+| Tool | Command | Description |
+|------|---------|-------------|
+| Volatility 3 | `vol -f memory.dmp windows.pslist` | Analyze Windows memory dumps for processes, DLLs, registry, network, and more |
+| Volatility 3 | `vol -f memory.dmp windows.malfind` | Detect injected code and suspicious memory regions |
+| Volatility 3 | `vol -f memory.dmp windows.dlllist` | List loaded DLLs for each process |
+
+## Archive & Installer Extraction
+
+| Tool | Command | Description |
+|------|---------|-------------|
+| cabextract | `cabextract archive.cab` | Extract Microsoft Cabinet (.cab) archives |
+| innoextract | `innoextract setup.exe` | Extract files from Inno Setup installers without running them |
+
+## Authenticode & Code Signing
+
+| Tool | Command | Description |
+|------|---------|-------------|
+| osslsigncode | `osslsigncode verify binary.exe` | Verify, extract, or manipulate Authenticode signatures on PE files |
+
+## Windows Python Libraries
+
+| Library | Import | Description |
+|---------|--------|-------------|
+| pefile | `import pefile` | Parse and manipulate PE files: headers, sections, imports, exports, resources |
+| dnfile | `import dnfile` | Parse .NET PE files: metadata tables, streams, type references |
+| lief | `import lief` | Multi-format binary parser (PE, ELF, Mach-O) with modification support |
+| capstone | `import capstone` | Disassembly framework supporting x86, x64, ARM, ARM64, MIPS, and more |
+| unicorn | `import unicorn` | CPU emulator framework for binary emulation (x86, ARM, MIPS, etc.) |
+| oletools | `import oletools` | Analyze OLE/Office files for macros, VBA, and embedded objects |
+
+## Workflows
+
+### PE static analysis
+
+```sh
+# Identify compiler/packer/protector
+diec binary.exe
+
+# Inspect PE structure
+PE-bear binary.exe  # GUI
+# or from Python:
+python3 -c "import pefile; pe = pefile.PE('binary.exe'); pe.print_info()"
+
+# Extract obfuscated strings
+floss binary.exe > tmp/floss_output.txt
+
+# Check YARA rules
+yara rules.yar binary.exe
+```
+
+### .NET assembly analysis
+
+```sh
+# Decompile to C# source
+ilspycmd -p -o tmp/ilspy_assembly/ assembly.dll
+
+# Or use the GUI decompiler
+avalonia-ilspy  # open assembly.dll
+
+# Inspect .NET metadata from Python
+python3 -c "import dnfile; dn = dnfile.dnPE('assembly.dll'); print(dn.net.metadata)"
+```
+
+### Unpacking with UPX
+
+```sh
+# Detect packing
+diec packed.exe
+
+# Decompress UPX-packed binary
+upx -d packed.exe -o tmp/unpacked.exe
+
+# Verify unpacking
+diec tmp/unpacked.exe
+```
+
+### Windows malware triage
+
+```sh
+# Identify build tools and protections
+diec sample.exe
+
+# Extract strings (including obfuscated)
+floss sample.exe > tmp/strings.txt
+
+# Scan with YARA
+yara malware_rules.yar sample.exe
+
+# Parse PE structure
+python3 -c "
+import pefile
+pe = pefile.PE('sample.exe')
+for entry in pe.DIRECTORY_ENTRY_IMPORT:
+    print(entry.dll.decode())
+    for imp in entry.imports:
+        print(f'  {imp.name.decode() if imp.name else imp.ordinal}')
+"
+
+# Check for suspicious OLE content (if Office doc)
+python3 -c "from oletools.olevba import VBA_Parser; vba = VBA_Parser('doc.xlsm'); vba.analyze_macros()"
+```
+
+### Memory forensics
+
+```sh
+# List processes
+vol -f memory.dmp windows.pslist
+
+# Detect code injection
+vol -f memory.dmp windows.malfind
+
+# Dump suspicious process
+vol -f memory.dmp windows.pslist --pid 1234 --dump -o tmp/procdump/
+
+# List network connections
+vol -f memory.dmp windows.netscan
+```
+
+### Binary emulation with Unicorn
+
+```python
+from unicorn import *
+from unicorn.x86_const import *
+
+# Emulate x86 code snippet
+mu = Uc(UC_ARCH_X86, UC_MODE_32)
+mu.mem_map(0x1000, 0x1000)
+mu.mem_write(0x1000, code_bytes)
+mu.reg_write(UC_X86_REG_ESP, 0x2000)
+mu.emu_start(0x1000, 0x1000 + len(code_bytes))
+```
+
+## Notes
+
+- PE-bear, Avalonia ILSpy, and ImHex require a display server for their GUIs. On headless/WSL systems, use an X server (e.g., VcXsrv) or use CLI alternatives (`diec`, `ilspycmd`, Python libraries).
+- `retdec` (RetDec decompiler) consumes significant memory for large binaries. Use Ghidra's decompiler for complex analysis.
+- Volatility 3 plugins are under the `windows.` namespace for Windows memory analysis. Use `vol --help` to list all available plugins.
+- `oletools` provides both Python APIs and CLI entry points (`olevba`, `oleid`, `rtfobj`, etc.) for analyzing Office/OLE documents.
+- `capstone` and `unicorn` are general-purpose but particularly useful for Windows x86/x64 shellcode and malware analysis.
