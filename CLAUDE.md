@@ -1,20 +1,39 @@
-# Android Reverse Engineering Environment
+# Reverse Engineering Environment
 
-Nix flake-based development shell providing a comprehensive toolkit for Android APK and native binary reverse engineering. Enter the environment with `nix develop` or via direnv.
+Multi-discipline Nix flake-based development shell for reverse engineering. Enter the environment with `nix develop` or via direnv.
+
+## Skill System
+
+This environment is organized into a **general-purpose core** (this file) and **discipline-specific skills** that auto-activate based on context. Skills provide specialized tool documentation, workflows, and notes for their domain.
+
+### Available Disciplines
+
+| Skill | Path | Activates On |
+|-------|------|-------------|
+| Android RE | `.claude/skills/android/SKILL.md` | APK, DEX, smali, ADB, Android app analysis |
+| Windows RE | `.claude/skills/windows/SKILL.md` | PE, .exe, .dll, .sys, .NET, Windows binary analysis |
+
+### Adding a New Discipline
+
+1. Create `.claude/skills/<discipline>/SKILL.md` with front matter (`name`, `user-invocable: false`, `description` with trigger keywords).
+2. Add discipline-specific tools to `flake.nix` under a `# --- <Discipline>:` comment section.
+3. Add discipline-specific Python/Node dependencies to `pyproject.toml`/`package.json`.
+4. Document the skill in the table above.
+5. Tools shared across disciplines stay in the general sections of `flake.nix` and this file.
 
 ## Output Directory Convention
 
 All reverse engineering work products must go in one of two locations:
 
-- **`tmp/`** -- Intermediate and throwaway side products: decompiled source, disassembly output, extracted APK contents, unpacked resources, Ghidra projects, scratch scripts, etc. This directory is in `.gitignore` and will not be committed. Create subdirectories freely (e.g., `tmp/jadx_com.example.app/`, `tmp/extracted/`).
-- **`artifacts/<package.namespace>/`** -- Final, requested deliverables: analysis reports, annotated code snippets, Frida hook scripts, YARA rules, patch files, or anything the user explicitly asks to keep. Use the app's package namespace (e.g., `com.example.app`) as the subdirectory name. This directory is tracked by git.
+- **`tmp/`** -- Intermediate and throwaway side products: decompiled source, disassembly output, extracted contents, unpacked resources, Ghidra projects, scratch scripts, etc. This directory is in `.gitignore` and will not be committed. Create subdirectories freely (e.g., `tmp/ghidra_project/`, `tmp/extracted_sample/`).
+- **`artifacts/<identifier>/`** -- Final, requested deliverables: analysis reports, annotated code snippets, hook scripts, YARA rules, patch files, or anything the user explicitly asks to keep. Use a meaningful identifier as the subdirectory name (e.g., package namespace `com.example.app`, sample hash, malware family name). This directory is tracked by git.
 
 When running tools, always direct output into `tmp/` rather than the repo root. Examples:
 
 ```sh
-jadx -d tmp/jadx_com.example.app/ com.example.app.apk
-apktool d com.example.app.apk -o tmp/apktool_com.example.app/
-unzip com.example.app.apk -d tmp/extracted_com.example.app/
+ghidra  # save project to tmp/ghidra_<sample>/
+r2 -A sample.bin  # any output files go to tmp/
+binwalk -e firmware.bin -C tmp/binwalk_firmware/
 ```
 
 Never leave tool output in the repo root or in ad-hoc directories outside these two locations.
@@ -23,101 +42,39 @@ Never leave tool output in the repo root or in ad-hoc directories outside these 
 
 The dev shell is defined in `flake.nix` and organized into tool categories. Python dependencies are declared in `pyproject.toml`, locked by `uv.lock`, and built into a Nix virtualenv via [uv2nix](https://github.com/pyproject-nix/uv2nix). Node.js dependencies are declared in `package.json`, locked by `package-lock.json`, and built via `importNpmLock`; bin scripts from npm packages are automatically on PATH. Ghidra's JDK is configured via `GHIDRA_JAVA_HOME`.
 
-## Installed Tools
+## Installed Tools (General-Purpose)
 
-### APK Disassembly & Manipulation
-
-| Tool | Command | Description |
-|------|---------|-------------|
-| apktool | `apktool d app.apk` | Decode APKs to smali + resources; rebuild with `apktool b` |
-| apkeditor | `apkeditor` | Edit APK resources directly |
-| apksigner | `apksigner sign --ks key.jks app.apk` | Sign and verify APK signatures (Android SDK) |
-| apksigcopier | `apksigcopier` | Copy, extract, or patch APK signature blocks between files |
-| APKiD | `apkid app.apk` | Identify compilers, packers, and obfuscators used to build an APK |
-| aapt | `aapt dump badging app.apk` | Inspect APK metadata, resources, and manifest |
-| bundletool | `bundletool build-apks --bundle=app.aab --output=out.apks` | Convert Android App Bundles (.aab) to APK sets |
-
-### Java/DEX Decompilation
-
-| Tool | Command | Description |
-|------|---------|-------------|
-| jadx | `jadx -d output/ app.apk` | Decompile DEX/APK directly to Java source (also has GUI: `jadx-gui`) |
-| dex2jar | `d2j-dex2jar app.apk` | Convert DEX bytecode to a standard JAR for use with Java decompilers |
-| bytecode-viewer | `bytecode-viewer` | GUI combining multiple decompilers (Procyon, CFR, FernFlower, etc.) |
+Discipline-specific tools are documented in their respective skill files. The tools below are available across all RE disciplines.
 
 ### Native Binary Reverse Engineering
 
 | Tool | Command | Description |
 |------|---------|-------------|
-| Ghidra | `ghidra` | NSA's software reverse engineering suite with decompiler; supports ARM/ARM64 ELF (`.so` libraries) |
-| radare2 | `r2 libexample.so` | CLI-first RE framework for disassembly, analysis, patching, and debugging |
-| rizin | `rizin libexample.so` | Modern radare2 fork with improved APIs and Ghidra decompiler integration via rz-ghidra |
+| Ghidra | `ghidra` | NSA's software reverse engineering suite with decompiler; supports x86, x64, ARM, ARM64, MIPS, and more |
+| radare2 | `r2 binary` | CLI-first RE framework for disassembly, analysis, patching, and debugging |
+| rizin | `rizin binary` | Modern radare2 fork with improved APIs and Ghidra decompiler integration via rz-ghidra |
 | binwalk | `binwalk firmware.bin` | Scan and extract embedded files, compressed streams, and filesystems from binaries |
 
 ### Dynamic Instrumentation
 
 | Tool | Command | Description |
 |------|---------|-------------|
-| frida-tools | `frida -U -f com.app.pkg -l script.js` | Inject JavaScript into running Android processes for runtime hooking |
-| frida-tools | `frida-ps -U` | List processes on a USB-connected device |
-| frida-tools | `frida-trace -U -f com.app.pkg -i "open*"` | Auto-generate handler stubs for traced functions |
-| jnitrace | `jnitrace -l libnative.so com.app.pkg` | Trace all JNI API calls made by a native library at runtime |
+| frida-tools | `frida -p <pid> -l script.js` | Inject JavaScript into running processes for runtime hooking |
+| frida-tools | `frida-ps` | List running processes (add `-U` for USB device, `-R` for remote) |
+| frida-tools | `frida-trace -p <pid> -i "open*"` | Auto-generate handler stubs for traced functions |
 
-### Static Analysis & Security Scanning
+### Static Analysis
 
 | Tool | Command | Description |
 |------|---------|-------------|
-| trueseeing | `trueseeing app.apk` | Scan APKs for vulnerabilities without decompilation |
-| quark-engine | `quark -a app.apk -s` | Score and analyze APKs for malware behaviors |
 | YARA | `yara rules.yar target/` | Match file patterns using YARA rules for malware identification |
-| koodousfinder | `koodousfinder` | Search for and analyze Android applications |
 
 ### Network Interception
 
 | Tool | Command | Description |
 |------|---------|-------------|
-| mitmproxy | `mitmproxy` / `mitmweb` / `mitmdump` | Intercept, inspect, and modify HTTPS traffic from Android apps |
+| mitmproxy | `mitmproxy` / `mitmweb` / `mitmdump` | Intercept, inspect, and modify HTTPS traffic |
 | tshark | `tshark -i any -f "host 10.0.0.1"` | Capture and analyze network packets (Wireshark CLI) |
-
-### ADB & Device Interaction
-
-| Tool | Command | Description |
-|------|---------|-------------|
-| adb | `adb devices` / `adb shell` / `adb pull` | Android Debug Bridge for device communication |
-| fastboot | `fastboot flash` | Flash device partitions |
-| scrcpy | `scrcpy` | Mirror and control an Android device screen over USB or TCP/IP |
-
-### Android Image & OTA Tools
-
-| Tool | Command | Description |
-|------|---------|-------------|
-| simg2img | `simg2img system.img system.raw.img` | Convert Android sparse images to raw ext4 images |
-| sdat2img | `sdat2img system.transfer.list system.new.dat system.img` | Convert `.dat` sparse data files to ext4 images |
-| payload-dumper-go | `payload-dumper-go payload.bin` | Extract partition images from `payload.bin` in Android OTA updates |
-| imgpatchtools | `imgpatchtools` | Apply and manipulate Android OTA incremental patches |
-
-### Python Scripting Environment
-
-Python dependencies are managed via `pyproject.toml` and `uv.lock`, built into a Nix virtualenv by uv2nix. The following libraries are pre-installed:
-
-| Library | Import | Description |
-|---------|--------|-------------|
-| frida | `import frida` | Python API for Frida dynamic instrumentation |
-| yara-python | `import yara` | Compile and apply YARA rules from Python |
-| pyaxmlparser | `import pyaxmlparser` | Parse AndroidManifest.xml and extract app metadata |
-| IPython | `ipython` | Enhanced interactive Python shell for exploratory analysis |
-
-To add a Python package permanently, run `uv add <package>` then `direnv reload`. See [Augmenting the Environment](#augmenting-the-environment).
-
-### Node.js Scripting Environment
-
-Node.js dependencies are managed via `package.json` and `package-lock.json`, built into a Nix-managed `node_modules` by `importNpmLock`. Bin scripts from installed packages are automatically available on PATH via `linkNodeModulesHook`.
-
-| Tool | Command | Description |
-|------|---------|-------------|
-| apk-mitm | `apk-mitm app.apk` | Patch APKs to bypass certificate pinning for MITM traffic interception |
-
-To add a Node.js package permanently, run `npm install <package>` then `direnv reload`. See [Augmenting the Environment](#augmenting-the-environment). Note that npm packages with native install scripts that download binaries (e.g., the `frida` npm package) will fail in the Nix sandbox -- use nixpkgs equivalents for those.
 
 ### General Utilities
 
@@ -125,77 +82,57 @@ To add a Node.js package permanently, run `npm install <package>` then `direnv r
 
 | Tool | Command | Description |
 |------|---------|-------------|
+| UPX | `upx -d packed.exe` | Decompress executables packed with UPX |
 | uv | `uv add <pkg>` | Python package manager; add dependencies to pyproject.toml and uv.lock, then `direnv reload` to rebuild |
 | npm | `npm install <pkg>` | Node.js package manager; add dependencies to package.json and package-lock.json, then `direnv reload` to rebuild |
 
+### Python Scripting Environment
+
+Python dependencies are managed via `pyproject.toml` and `uv.lock`, built into a Nix virtualenv by uv2nix. The following general-purpose libraries are pre-installed:
+
+| Library | Import | Description |
+|---------|--------|-------------|
+| frida | `import frida` | Python API for Frida dynamic instrumentation |
+| yara-python | `import yara` | Compile and apply YARA rules from Python |
+| IPython | `ipython` | Enhanced interactive Python shell for exploratory analysis |
+
+Discipline-specific Python libraries are listed in their respective skill files. To add a Python package permanently, run `uv add <package>` then `direnv reload`. See [Augmenting the Environment](#augmenting-the-environment).
+
+### Node.js Scripting Environment
+
+Node.js dependencies are managed via `package.json` and `package-lock.json`, built into a Nix-managed `node_modules` by `importNpmLock`. Bin scripts from installed packages are automatically available on PATH via `linkNodeModulesHook`.
+
+Discipline-specific Node.js tools are listed in their respective skill files. To add a Node.js package permanently, run `npm install <package>` then `direnv reload`. See [Augmenting the Environment](#augmenting-the-environment). Note that npm packages with native install scripts that download binaries (e.g., the `frida` npm package) will fail in the Nix sandbox -- use nixpkgs equivalents for those.
+
 ## Common Workflows
 
-### Full APK static analysis
+### Binary analysis with Ghidra
 
 ```sh
-# Identify build toolchain and protections
-apkid app.apk
+# GUI (requires display server on headless/WSL)
+ghidra  # import binary, save project to tmp/
 
-# Decode to smali + resources
-apktool d app.apk -o app_decoded/
-
-# Decompile to Java source
-jadx -d app_src/ app.apk
-
-# Scan for vulnerabilities
-trueseeing app.apk
-
-# Check for malware behaviors
-quark -a app.apk -s
+# Headless analysis
+analyzeHeadless tmp/ghidra_project ProjectName -import binary -postScript script.java
 ```
 
-### Native library analysis
+### Quick CLI disassembly
 
 ```sh
-# Extract the APK
-unzip app.apk -d app_contents/
-
-# Analyze ARM .so with Ghidra
-ghidra  # import app_contents/lib/arm64-v8a/libnative.so
-
-# Or use radare2/rizin for quick CLI analysis
-r2 -A app_contents/lib/arm64-v8a/libnative.so
-```
-
-### Runtime hooking with Frida
-
-```sh
-# List running processes
-frida-ps -U
-
-# Attach and trace
-frida -U -f com.target.app -l hook.js --no-pause
-
-# Trace JNI calls
-jnitrace -l libnative.so com.target.app
+# radare2
+r2 -A binary
+# rizin
+rizin -A binary
 ```
 
 ### Network traffic interception
 
 ```sh
-# Start mitmproxy, configure device to use proxy
+# Start mitmproxy, configure target to use proxy
 mitmproxy --listen-port 8080
 
 # Or capture raw packets
-tshark -i any -w capture.pcap
-```
-
-### Extract OTA / system images
-
-```sh
-# From a payload.bin OTA
-payload-dumper-go payload.bin
-
-# Convert sparse to raw
-simg2img system.img system.raw.img
-
-# Mount and inspect
-mkdir mnt && sudo mount -o loop system.raw.img mnt/
+tshark -i any -w tmp/capture.pcap
 ```
 
 ### Adding Python packages with uv
@@ -257,26 +194,24 @@ When a task calls for a tool or library not currently in the dev shell, you have
 1. Run `uv add <package>` (updates `pyproject.toml` and `uv.lock`).
 2. Run `direnv reload` to rebuild the Nix virtualenv with the new dependency.
 3. If the package needs native libraries or build fixups, add overrides to the `dependencyFixups` section in `flake.nix`. See comments there for examples.
-4. **Update `CLAUDE.md`** to document the new library in the Python Scripting Environment table.
+4. **Update the appropriate skill file or `CLAUDE.md`** to document the new library.
 
 **For Node.js packages**, use npm to add them to `package.json`:
 
 1. Run `npm install <package>` (updates `package.json` and `package-lock.json`).
 2. Run `direnv reload` to rebuild the Nix node_modules with the new dependency.
-3. **Update `CLAUDE.md`** to document the new tool in the Node.js Scripting Environment section.
+3. **Update the appropriate skill file or `CLAUDE.md`** to document the new tool.
 
 **For non-Python/non-Node tools**, add them to `flake.nix`:
 
 1. **Search nixpkgs** for the package using the `/nix-package-search` skill (e.g., `/nix-package-search protobuf`).
-2. **Edit `flake.nix`** to add the package to the `packages` list (e.g., `pkgs.protobuf`).
+2. **Edit `flake.nix`** to add the package to the `packages` list under the appropriate category section.
 3. **Reload the environment** by running `direnv reload` (or exiting and re-entering `nix develop`).
-4. **Update `CLAUDE.md`** to document the new tool in the matching table section so the documentation stays in sync with the flake.
+4. **Update the appropriate skill file or `CLAUDE.md`** to document the new tool so documentation stays in sync with the flake.
 
-You are encouraged to self-modify `flake.nix`, `pyproject.toml`, `package.json`, and this file whenever the analysis requires a tool that should be part of the standard environment. Keep the existing organizational structure (category comments, table format) when adding entries.
+You are encouraged to self-modify `flake.nix`, `pyproject.toml`, `package.json`, skill files, and this file whenever the analysis requires a tool that should be part of the standard environment. Keep the existing organizational structure (category comments, table format) when adding entries.
 
 ## Notes
 
-- `androguard` is excluded from the environment because its `dataset` dependency is currently marked broken in nixpkgs. `pyaxmlparser` is included as a lightweight alternative for Android XML parsing. Re-add androguard when the upstream issue is resolved.
 - Ghidra requires a display server for its GUI. On headless/WSL systems, use an X server (e.g., VcXsrv) or Ghidra's headless analyzer: `analyzeHeadless`.
-- Frida requires a `frida-server` binary running on the target Android device (matching the frida-tools version).
-- mitmproxy certificate must be installed on the target device for HTTPS interception. Push it via: `adb push ~/.mitmproxy/mitmproxy-ca-cert.cer /sdcard/`.
+- Frida requires a matching `frida-server` binary running on the target (device or host).
