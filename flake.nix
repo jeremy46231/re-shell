@@ -214,7 +214,7 @@
               if [ -d "$npmDeps/node_modules" ]; then
                 linkNodeModulesHook
               fi
-              echo "Android RE environment loaded. See CLAUDE.md for tool documentation."
+              echo "RE environment loaded. See CLAUDE.md and .claude/skills/ for tool documentation."
             '';
           };
         }
