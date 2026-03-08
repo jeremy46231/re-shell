@@ -1,5 +1,5 @@
 {
-  "name": "android-re",
+  "name": "re-env",
   "version": "1.0.0",
   "private": true,
   "dependencies": {

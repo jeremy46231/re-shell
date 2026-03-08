@@ -1,13 +1,22 @@
 [project]
-name = "android-re"
+name = "re-env"
 version = "1.0.0"
 requires-python = ">=3.13"
 dependencies = [
+    # General
     "frida",
-    "hermes-dec>=0.1.0",
     "ipython",
-    "pyaxmlparser",
     "yara-python",
+    # Android
+    "hermes-dec>=0.1.0",
+    "pyaxmlparser",
+    # Windows
+    "capstone",
+    "dnfile",
+    "lief",
+    "oletools",
+    "pefile",
+    "unicorn",
 ]
 
 [build-system]

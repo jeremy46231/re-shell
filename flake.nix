@@ -1,5 +1,5 @@
 {
-  description = "Android package reverse engineering environment";
+  description = "Reverse engineering environment";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
@@ -39,7 +39,21 @@
     let
       inherit (nixpkgs) lib;
 
-      eachSystem = f: lib.genAttrs (import systems) (system: f nixpkgs.legacyPackages.${system});
+      eachSystem =
+        f:
+        lib.genAttrs (import systems) (
+          system:
+          f (
+            import nixpkgs {
+              inherit system;
+              config.allowUnfreePredicate =
+                pkg:
+                builtins.elem (lib.getName pkg) [
+                  "volatility3" # License listed as 'unknown' in nixpkgs
+                ];
+            }
+          )
+        );
 
       treefmtEval = eachSystem (
         pkgs:
@@ -88,7 +102,7 @@
               );
 
           # Build the virtualenv from workspace dependencies
-          venv = pythonSet.mkVirtualEnv "android-re-env" workspace.deps.default;
+          venv = pythonSet.mkVirtualEnv "re-env" workspace.deps.default;
         in
         {
           default = pkgs.mkShell {
@@ -99,7 +113,32 @@
               pkgs.nodejs
               pkgs.importNpmLock.hooks.linkNodeModulesHook
 
-              # --- APK disassembly & manipulation ---
+              # --- General: native binary reverse engineering ---
+              pkgs.ghidra # NSA's SRE suite (disassembler + decompiler)
+              pkgs.radare2 # UNIX-like RE framework and CLI toolset
+              pkgs.rizin # Modern fork of radare2
+              pkgs.binwalk # Firmware/binary analysis and extraction
+
+              # --- General: dynamic instrumentation ---
+              pkgs.frida-tools # Frida CLI tools (frida, frida-ps, frida-trace, etc.)
+
+              # --- General: static analysis ---
+              pkgs.yara # Pattern matching for malware research
+
+              # --- General: network interception ---
+              pkgs.mitmproxy # HTTPS man-in-the-middle proxy
+              pkgs.wireshark-cli # Network protocol analyzer (tshark)
+
+              # --- General: utilities ---
+              pkgs.unzip # ZIP extraction
+              pkgs.p7zip # 7-Zip archive tool
+              pkgs.file # File type identification
+              pkgs.jq # JSON processor
+              pkgs.sqlite # SQLite CLI (inspect app databases)
+              pkgs.openssl # Certificate and crypto utilities
+              pkgs.upx # Universal executable packer/unpacker
+
+              # --- Android: APK disassembly & manipulation ---
               pkgs.apktool # Decode/rebuild APKs (resources, smali)
               pkgs.apkeditor # APK resource editor
               pkgs.apksigner # Sign and verify APKs
@@ -108,48 +147,50 @@
               pkgs.aapt # Android Asset Packaging Tool
               pkgs.bundletool # Manipulate Android App Bundles (.aab)
 
-              # --- Java/DEX decompilation ---
+              # --- Android: Java/DEX decompilation ---
               pkgs.jadx # Dex-to-Java decompiler (CLI + GUI)
               pkgs.dex2jar # Convert DEX to JAR for Java decompilers
               pkgs.bytecode-viewer # Multi-decompiler bytecode viewer (GUI)
 
-              # --- Native binary reverse engineering ---
-              pkgs.ghidra # NSA's SRE suite (disassembler + decompiler)
-              pkgs.radare2 # UNIX-like RE framework and CLI toolset
-              pkgs.rizin # Modern fork of radare2
-              pkgs.binwalk # Firmware/binary analysis and extraction
-
-              # --- Dynamic instrumentation ---
-              pkgs.frida-tools # Frida CLI tools (frida, frida-ps, frida-trace, etc.)
+              # --- Android: dynamic instrumentation ---
               pkgs.jnitrace # Frida-based JNI API tracer for Android apps
 
-              # --- Static analysis & security scanning ---
+              # --- Android: static analysis & security scanning ---
               pkgs.trueseeing # Non-decompiling Android vulnerability scanner
               pkgs.quark-engine # Android malware analysis and scoring
-              pkgs.yara # Pattern matching for malware research
               pkgs.koodousfinder # Search and analyze Android apps
 
-              # --- Network interception ---
-              pkgs.mitmproxy # HTTPS man-in-the-middle proxy
-              pkgs.wireshark-cli # Network protocol analyzer (tshark)
-
-              # --- ADB & device interaction ---
+              # --- Android: ADB & device interaction ---
               pkgs.android-tools # ADB + fastboot
               pkgs.scrcpy # Display/control Android devices over USB/TCP
 
-              # --- Android image & OTA tools ---
+              # --- Android: image & OTA tools ---
               pkgs.simg2img # Sparse image to raw image converter
               pkgs.sdat2img # .dat sparse data to ext4 image converter
               pkgs.payload-dumper-go # Extract partitions from Android OTA payloads
               pkgs.imgpatchtools # Manipulate Android OTA archives
 
-              # --- General-purpose utilities ---
-              pkgs.unzip # ZIP extraction
-              pkgs.p7zip # 7-Zip archive tool
-              pkgs.file # File type identification
-              pkgs.jq # JSON processor
-              pkgs.sqlite # SQLite CLI (inspect app databases)
-              pkgs.openssl # Certificate and crypto utilities
+              # --- Windows: PE analysis & inspection ---
+              pkgs.pe-bear # GUI PE viewer for headers, sections, imports, exports
+              pkgs.detect-it-easy # Identify compilers, packers, protectors (diec)
+              pkgs.imhex # Hex editor with pattern language and PE templates
+
+              # --- Windows: .NET decompilation ---
+              pkgs.ilspycmd # Decompile .NET assemblies to C# (CLI)
+              pkgs.avalonia-ilspy # Cross-platform GUI .NET decompiler
+
+              # --- Windows: string & capability analysis ---
+              pkgs.flare-floss # Extract obfuscated/stack/decoded strings from malware
+
+              # --- Windows: memory forensics ---
+              pkgs.volatility3 # Analyze Windows memory dumps
+
+              # --- Windows: archive & installer extraction ---
+              pkgs.cabextract # Extract Microsoft Cabinet (.cab) archives
+              pkgs.innoextract # Extract files from Inno Setup installers
+
+              # --- Windows: signing & verification ---
+              pkgs.osslsigncode # Verify/manipulate Authenticode signatures on PE files
             ];
 
             npmDeps = nodeModules;
