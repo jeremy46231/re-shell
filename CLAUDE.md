@@ -94,6 +94,7 @@ Python dependencies are managed via `pyproject.toml` and `uv.lock`, built into a
 | Library | Import | Description |
 |---------|--------|-------------|
 | frida | `import frida` | Python API for Frida dynamic instrumentation |
+| pyghidra | `import pyghidra` | Python API for Ghidra; run headless analysis, access the decompiler, and script Ghidra entirely from Python via JPype |
 | yara-python | `import yara` | Compile and apply YARA rules from Python |
 | IPython | `ipython` | Enhanced interactive Python shell for exploratory analysis |
 
@@ -115,6 +116,24 @@ ghidra  # import binary, save project to tmp/
 
 # Headless analysis
 ghidra-analyzeHeadless tmp/ghidra_project ProjectName -import binary -postScript script.java
+```
+
+### Scripted Ghidra analysis with pyghidra
+
+```python
+import pyghidra
+
+# Start the Ghidra JVM (once per session)
+pyghidra.start()
+
+# Open a binary, auto-analyze, and access the Flat API
+with pyghidra.open_program("binary", project_location="tmp/ghidra_project") as flat_api:
+    program = flat_api.getCurrentProgram()
+    listing = program.getListing()
+    # iterate functions, read decompiled code, etc.
+
+# Or run a Ghidra script (.java/.py) against a binary
+pyghidra.run_script("binary", "script.java", project_location="tmp/ghidra_project")
 ```
 
 ### Quick CLI disassembly

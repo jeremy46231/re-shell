@@ -6,6 +6,7 @@ dependencies = [
     # General
     "frida",
     "ipython",
+    "pyghidra",
     "yara-python",
     # Android
     "hermes-dec>=0.1.0",
