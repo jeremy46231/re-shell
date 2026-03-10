@@ -1,7 +1,15 @@
+# Build outputs / cache
 /.direnv
 /node_modules
 /result
 /.ruff_cache
+
+# Claude's temp directory
 /tmp
+
+# Things to be reverse engineered
 *.apk
 *.xapk
+*.sys
+*.cat
+*.exe
