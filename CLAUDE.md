@@ -84,6 +84,7 @@ Discipline-specific tools are documented in their respective skill files. The to
 | Tool | Command | Description |
 |------|---------|-------------|
 | UPX | `upx -d packed.exe` | Decompress executables packed with UPX |
+| xxd | `xxd binary` | Hex dump / reverse hex dump utility |
 | uv | `uv add <pkg>` | Python package manager; add dependencies to pyproject.toml and uv.lock, then `direnv reload` to rebuild |
 | npm | `npm install <pkg>` | Node.js package manager; add dependencies to package.json and package-lock.json, then `direnv reload` to rebuild |
 

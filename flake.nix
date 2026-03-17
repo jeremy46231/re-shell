@@ -137,6 +137,7 @@
               pkgs.sqlite # SQLite CLI (inspect app databases)
               pkgs.openssl # Certificate and crypto utilities
               pkgs.upx # Universal executable packer/unpacker
+              pkgs.unixtools.xxd # Hex dump utility
 
               # --- Android: APK disassembly & manipulation ---
               pkgs.apktool # Decode/rebuild APKs (resources, smali)
