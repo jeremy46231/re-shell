@@ -4,6 +4,9 @@
 /result
 /.ruff_cache
 
+# Wordlists symlink (created by devShell shellHook -> Nix store)
+/wordlists
+
 # Claude's temp directory
 /tmp
 
@@ -17,3 +20,4 @@
 *.cat
 *.exe
 *.so
+*.uf2

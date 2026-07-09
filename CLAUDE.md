@@ -70,6 +70,24 @@ Discipline-specific tools are documented in their respective skill files. The to
 |------|---------|-------------|
 | YARA | `yara rules.yar target/` | Match file patterns using YARA rules for malware identification |
 
+### Password / Hash Cracking
+
+Wordlists and rules are exposed as a stable dir-of-symlinks at `wordlists/` in the repo root (gitignored, points into the Nix store) so no `/nix/store` spelunking is needed. Contents: `wordlists/rockyou.txt`, `wordlists/seclists/` (full SecLists tree), `wordlists/best64.rule`, `wordlists/hashcat-rules/`, `wordlists/john-rules/`, `wordlists/john-password.lst`. To add more, edit the `wordlists` linkFarm in `flake.nix`.
+
+| Tool | Command | Description |
+|------|---------|-------------|
+| hashcat | `hashcat -m 0 -a 0 hash.txt wordlists/rockyou.txt -r wordlists/best64.rule` | GPU/CPU password recovery |
+| john | `john --wordlist=wordlists/rockyou.txt hash.txt` | John the Ripper (Jumbo); also bundles `*2john` converters (e.g. `zip2john`) |
+
+### Embedded / RP2040-RP2350 (Pico) Firmware
+
+| Tool | Command | Description |
+|------|---------|-------------|
+| picotool | `picotool info -a firmware.uf2` | Inspect/convert RP2 UF2 firmware, read binary info and chip details |
+| pico-sdk | (via `PICO_SDK_PATH`) | Raspberry Pi Pico SDK; `PICO_SDK_PATH` is set automatically in the dev shell |
+| cmake | `cmake -B build` | Build system for pico-sdk projects |
+| gcc-arm-embedded | `arm-none-eabi-gcc` | ARM cross toolchain (`arm-none-eabi-{gcc,objcopy,gdb,...}`) |
+
 ### Network Interception
 
 | Tool | Command | Description |
@@ -85,6 +103,7 @@ Discipline-specific tools are documented in their respective skill files. The to
 |------|---------|-------------|
 | UPX | `upx -d packed.exe` | Decompress executables packed with UPX |
 | xxd | `xxd binary` | Hex dump / reverse hex dump utility |
+| exiftool | `exiftool file` | Read/write embedded metadata (images, documents, firmware) |
 | uv | `uv add <pkg>` | Python package manager; add dependencies to pyproject.toml and uv.lock, then `direnv reload` to rebuild |
 | npm | `npm install <pkg>` | Node.js package manager; add dependencies to package.json and package-lock.json, then `direnv reload` to rebuild |
 
@@ -98,6 +117,9 @@ Python dependencies are managed via `pyproject.toml` and `uv.lock`, built into a
 | pyghidra | `import pyghidra` | Python API for Ghidra; run headless analysis, access the decompiler, and script Ghidra entirely from Python via JPype |
 | yara-python | `import yara` | Compile and apply YARA rules from Python |
 | IPython | `ipython` | Enhanced interactive Python shell for exploratory analysis |
+| NumPy | `import numpy` | Array/numeric computing (byte-array math, entropy, correlation) |
+| SciPy | `import scipy` | Scientific computing (FFT, signal processing, optimization) |
+| Pillow | `from PIL import Image` | Image loading/manipulation (extracted textures, QR, framebuffers) |
 
 Discipline-specific Python libraries are listed in their respective skill files. To add a Python package permanently, run `uv add <package>` then `direnv reload`. See [Augmenting the Environment](#augmenting-the-environment).
 
@@ -120,6 +142,8 @@ ghidra-analyzeHeadless tmp/ghidra_project ProjectName -import binary -postScript
 ```
 
 ### Scripted Ghidra analysis with pyghidra
+
+`pyghidra.start()` requires `GHIDRA_INSTALL_DIR` to point at the Ghidra install. The dev shell sets this automatically (along with `GHIDRA_JAVA_HOME`), so `import pyghidra; pyghidra.start()` works directly -- no manual `export GHIDRA_INSTALL_DIR=...` prefix needed.
 
 ```python
 import pyghidra

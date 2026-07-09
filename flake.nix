@@ -103,6 +103,39 @@
 
           # Build the virtualenv from workspace dependencies
           venv = pythonSet.mkVirtualEnv "re-env" workspace.deps.default;
+
+          # A dir-of-symlinks of common wordlists/rules so cracking tools don't
+          # require /nix/store spelunking. Linked into $repoRoot/wordlists by the
+          # shellHook below. Add more entries here as needed.
+          wordlists = pkgs.linkFarm "re-wordlists" [
+            {
+              name = "rockyou.txt";
+              path = "${pkgs.rockyou}/share/wordlists/rockyou.txt";
+            }
+            {
+              # Full SecLists collection (~1.8 GiB closure): Passwords, Discovery,
+              # Fuzzing, Usernames, Payloads, etc.
+              name = "seclists";
+              path = "${pkgs.seclists}/share/wordlists/seclists";
+            }
+            {
+              name = "john-password.lst";
+              path = "${pkgs.john}/share/john/password.lst";
+            }
+            {
+              name = "hashcat-rules";
+              path = "${pkgs.hashcat}/share/doc/hashcat/rules";
+            }
+            {
+              name = "john-rules";
+              path = "${pkgs.john}/share/john/rules";
+            }
+            {
+              # best64.rule ships with john (not this hashcat build); expose it directly
+              name = "best64.rule";
+              path = "${pkgs.john}/share/john/rules/best64.rule";
+            }
+          ];
         in
         {
           default = pkgs.mkShell {
@@ -138,6 +171,17 @@
               pkgs.openssl # Certificate and crypto utilities
               pkgs.upx # Universal executable packer/unpacker
               pkgs.unixtools.xxd # Hex dump utility
+              pkgs.exiftool # Read/write metadata in files (images, firmware, etc.)
+
+              # --- General: password / hash cracking ---
+              pkgs.hashcat # GPU/CPU password recovery
+              pkgs.john # John the Ripper (Jumbo) password cracker
+
+              # --- General: embedded / RP2040-RP2350 (Pico) firmware ---
+              pkgs.picotool # Inspect/convert RP2 UF2 firmware, read chip info
+              pkgs.pico-sdk # Raspberry Pi Pico SDK (PICO_SDK_PATH set in env)
+              pkgs.cmake # Build system for pico-sdk projects
+              pkgs.gcc-arm-embedded # arm-none-eabi-gcc cross toolchain
 
               # --- Android: APK disassembly & manipulation ---
               pkgs.apktool # Decode/rebuild APKs (resources, smali)
@@ -216,6 +260,12 @@
               # Ensure Ghidra can find a JDK
               GHIDRA_JAVA_HOME = "${pkgs.jdk}/lib/openjdk";
 
+              # Let pyghidra locate the Ghidra install (pyghidra.start() requires this)
+              GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
+
+              # Point pico-sdk builds at the SDK root (contains pico_sdk_init.cmake)
+              PICO_SDK_PATH = "${pkgs.pico-sdk}/lib/pico-sdk";
+
               # Don't let uv create/sync its own venv -- Nix manages it
               UV_NO_SYNC = "1";
 
@@ -231,6 +281,9 @@
               if [ -d "$npmDeps/node_modules" ]; then
                 linkNodeModulesHook
               fi
+              # Expose wordlists/rules as a stable dir-of-symlinks at the repo root
+              # so cracking tools don't need /nix/store paths. Symlink, gitignored.
+              ln -sfn ${wordlists} "$PWD/wordlists"
               echo "RE environment loaded. See CLAUDE.md and .claude/skills/ for tool documentation."
             '';
           };
