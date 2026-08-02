@@ -70,6 +70,25 @@ Discipline-specific tools are documented in their respective skill files. The to
 |------|---------|-------------|
 | YARA | `yara rules.yar target/` | Match file patterns using YARA rules for malware identification |
 
+### USB
+
+| Tool | Command | Description |
+|------|---------|-------------|
+| usbutils | `lsusb -v -d 2e1a:` | Dump USB descriptors (configs, interfaces, endpoints) |
+
+Raw USB from Python uses `pyusb` over the libusb-1.0 backend. `ctypes.util.find_library`
+finds nothing on NixOS, so the dev shell exports `LIBUSB1_SO`; pass it explicitly:
+
+```python
+import os, usb.core, usb.backend.libusb1 as lb
+be = lb.get_backend(find_library=lambda _: os.environ["LIBUSB1_SO"])
+dev = usb.core.find(idVendor=0x1234, idProduct=0x5678, backend=be)
+```
+
+Control and bulk transfers need write access to `/dev/bus/usb/*`: run as root, or add a
+udev rule for the target VID:PID. Note that a vendor device often changes VID:PID when it
+switches USB modes, so match on all of the identities it can present.
+
 ### Password / Hash Cracking
 
 Wordlists and rules are exposed as a stable dir-of-symlinks at `wordlists/` in the repo root (gitignored, points into the Nix store) so no `/nix/store` spelunking is needed. Contents: `wordlists/rockyou.txt`, `wordlists/seclists/` (full SecLists tree), `wordlists/best64.rule`, `wordlists/hashcat-rules/`, `wordlists/john-rules/`, `wordlists/john-password.lst`. To add more, edit the `wordlists` linkFarm in `flake.nix`.
@@ -120,6 +139,7 @@ Python dependencies are managed via `pyproject.toml` and `uv.lock`, built into a
 | NumPy | `import numpy` | Array/numeric computing (byte-array math, entropy, correlation) |
 | SciPy | `import scipy` | Scientific computing (FFT, signal processing, optimization) |
 | Pillow | `from PIL import Image` | Image loading/manipulation (extracted textures, QR, framebuffers) |
+| pyusb | `import usb.core` | Raw USB control/bulk/interrupt transfers (see [USB](#usb) for the libusb backend) |
 
 Discipline-specific Python libraries are listed in their respective skill files. To add a Python package permanently, run `uv add <package>` then `direnv reload`. See [Augmenting the Environment](#augmenting-the-environment).
 

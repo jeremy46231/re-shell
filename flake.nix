@@ -173,6 +173,10 @@
               pkgs.unixtools.xxd # Hex dump utility
               pkgs.exiftool # Read/write metadata in files (images, firmware, etc.)
 
+              # --- General: USB ---
+              pkgs.libusb1 # libusb-1.0 backend for pyusb (raw control/bulk transfers)
+              pkgs.usbutils # lsusb -v for descriptor dumps
+
               # --- General: password / hash cracking ---
               pkgs.hashcat # GPU/CPU password recovery
               pkgs.john # John the Ripper (Jumbo) password cracker
@@ -265,6 +269,10 @@
 
               # Point pico-sdk builds at the SDK root (contains pico_sdk_init.cmake)
               PICO_SDK_PATH = "${pkgs.pico-sdk}/lib/pico-sdk";
+
+              # pyusb resolves its backend with ctypes.util.find_library, which finds
+              # nothing on NixOS. Point it at the libusb-1.0 shared object directly.
+              LIBUSB1_SO = "${pkgs.libusb1}/lib/libusb-1.0.so";
 
               # Don't let uv create/sync its own venv -- Nix manages it
               UV_NO_SYNC = "1";
