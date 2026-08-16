@@ -129,12 +129,20 @@ Wordlists and rules are exposed as a stable dir-of-symlinks at `wordlists/` in t
 | cmake | `cmake -B build` | Build system for pico-sdk projects |
 | gcc-arm-embedded | `arm-none-eabi-gcc` | ARM cross toolchain (`arm-none-eabi-{gcc,objcopy,gdb,...}`) |
 
-### Network Interception
+### Network Interception and Discovery
 
 | Tool | Command | Description |
 |------|---------|-------------|
 | mitmproxy | `mitmproxy` / `mitmweb` / `mitmdump` | Intercept, inspect, and modify HTTPS traffic |
 | tshark | `tshark -i any -f "host 10.0.0.1"` | Capture and analyze network packets (Wireshark CLI) |
+| nmap | `nmap -p 9123 --open 10.42.0.0/22` | Host, port, and service discovery |
+| avahi | `avahi-browse -rt _elg._tcp` | Browse mDNS/DNS-SD services and resolve them to address and port |
+
+Find a network device before you scan for it. Most consumer hardware advertises
+itself over mDNS, so `avahi-browse -art` names the device and its port in one
+step. Use `nmap` when the device does not advertise, or when the service name is
+unknown. `avahi-browse` needs the avahi daemon on the host
+(`services.avahi.enable = true;` on NixOS).
 
 ### General Utilities
 
@@ -144,6 +152,7 @@ Wordlists and rules are exposed as a stable dir-of-symlinks at `wordlists/` in t
 |------|---------|-------------|
 | UPX | `upx -d packed.exe` | Decompress executables packed with UPX |
 | xxd | `xxd binary` | Hex dump / reverse hex dump utility |
+| binutils | `strings -n 8 file`, `nm`, `objdump`, `readelf` | Read strings, symbols, and ELF structure |
 | exiftool | `exiftool file` | Read/write embedded metadata (images, documents, firmware) |
 | innoextract | `innoextract -e -d out setup.exe` | Extract Inno Setup installers (common packaging for vendor firmware update tools) |
 | asar | `asar extract app.asar tmp/app/` | Unpack Electron `app.asar` archives (`asar list` to inspect first) |
@@ -164,6 +173,12 @@ Python dependencies are managed via `pyproject.toml` and `uv.lock`, built into a
 | SciPy | `import scipy` | Scientific computing (FFT, signal processing, optimization) |
 | Pillow | `from PIL import Image` | Image loading/manipulation (extracted textures, QR, framebuffers) |
 | pyusb | `import usb.core` | Raw USB control/bulk/interrupt transfers (see [USB](#usb) for the libusb backend) |
+| capstone | `import capstone` | Disassembler for x86, x64, ARM, ARM64, MIPS, and more; disassemble a few bytes without a Ghidra run |
+| cryptography | `from cryptography.hazmat.primitives.asymmetric...` | Signature and cipher primitives (Ed25519, ECDSA, RSA, AES) for firmware signature checks |
+
+Use `capstone` for a quick look at a small number of instructions, for example to
+identify a patch site or to read a function prologue. Ghidra gives better results
+on a full image, but a large blob can need more than an hour to analyze.
 
 Discipline-specific Python libraries are listed in their respective skill files. To add a Python package permanently, run `uv add <package>` then `direnv reload`. See [Augmenting the Environment](#augmenting-the-environment).
 

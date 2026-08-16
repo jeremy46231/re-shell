@@ -158,13 +158,16 @@
               # --- General: static analysis ---
               pkgs.yara # Pattern matching for malware research
 
-              # --- General: network interception ---
+              # --- General: network interception & discovery ---
               pkgs.mitmproxy # HTTPS man-in-the-middle proxy
               pkgs.wireshark-cli # Network protocol analyzer (tshark)
+              pkgs.nmap # Host/port/service discovery (find a device that moved IP)
+              pkgs.avahi # avahi-browse - mDNS/DNS-SD service discovery (IoT devices)
 
               # --- General: utilities ---
               pkgs.unzip # ZIP extraction
               pkgs.p7zip # 7-Zip archive tool
+              pkgs.binutils # strings/nm/objdump/readelf (otherwise only incidental, via stdenv)
               pkgs.file # File type identification
               pkgs.curl # HTTP client (fetching firmware packages, vendor manifests)
               pkgs.jq # JSON processor
@@ -246,6 +249,7 @@
               # --- Windows: archive & installer extraction ---
               pkgs.cabextract # Extract Microsoft Cabinet (.cab) archives
               pkgs.innoextract # Extract files from Inno Setup installers
+              pkgs.msitools # msiinfo/msiextract - read MSI tables, not just the CAB payload
 
               # --- Windows: signing & verification ---
               pkgs.osslsigncode # Verify/manipulate Authenticode signatures on PE files

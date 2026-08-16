@@ -46,6 +46,14 @@ This skill covers Windows-specific RE tools available in the dev shell. For gene
 |------|---------|-------------|
 | cabextract | `cabextract archive.cab` | Extract Microsoft Cabinet (.cab) archives |
 | innoextract | `innoextract setup.exe` | Extract files from Inno Setup installers without running them |
+| msitools | `msiextract -C tmp/msi/ installer.msi` | Extract an MSI payload with the installed file names |
+| msitools | `msiinfo tables installer.msi` / `msiinfo export installer.msi Property` | Read the MSI database tables |
+
+`7z x installer.msi` also extracts an MSI, but it gives you the internal stream
+names, which vendors frequently mangle (`filUrdi_4VOhmE74tO5C.L675ZenTA`).
+`msiextract` applies the `File` and `Directory` tables and writes the real names
+and the real tree. Use `msiinfo export` to read `Property` for the version and
+the product code, and `CustomAction` for the code the installer runs.
 
 ## Running Windows Binaries
 
@@ -72,7 +80,6 @@ install is a `rm -rf` away and never touches `~/.wine`. `WINEDEBUG=-all` silence
 | pefile | `import pefile` | Parse and manipulate PE files: headers, sections, imports, exports, resources |
 | dnfile | `import dnfile` | Parse .NET PE files: metadata tables, streams, type references |
 | lief | `import lief` | Multi-format binary parser (PE, ELF, Mach-O) with modification support |
-| capstone | `import capstone` | Disassembly framework supporting x86, x64, ARM, ARM64, MIPS, and more |
 | unicorn | `import unicorn` | CPU emulator framework for binary emulation (x86, ARM, MIPS, etc.) |
 | oletools | `import oletools` | Analyze OLE/Office files for macros, VBA, and embedded objects |
 
@@ -226,4 +233,4 @@ mu.emu_start(0x1000, 0x1000 + len(code_bytes))
 - `retdec` (RetDec decompiler) is not currently installed but is available in nixpkgs (`pkgs.retdec`). It consumes significant memory; use Ghidra's decompiler for most analysis.
 - Volatility 3 plugins are under the `windows.` namespace for Windows memory analysis. Use `vol --help` to list all available plugins.
 - `oletools` provides both Python APIs and CLI entry points (`olevba`, `oleid`, `rtfobj`, etc.) for analyzing Office/OLE documents.
-- `capstone` and `unicorn` are general-purpose but particularly useful for Windows x86/x64 shellcode and malware analysis.
+- `unicorn` is general-purpose but particularly useful for Windows x86/x64 shellcode and malware analysis. `capstone` is documented in `CLAUDE.md` with the other general-purpose Python libraries.

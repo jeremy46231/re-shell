@@ -822,6 +822,7 @@ source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
     { name = "capstone" },
+    { name = "cryptography" },
     { name = "dnfile" },
     { name = "frida" },
     { name = "grpcio" },
@@ -847,6 +848,7 @@ dependencies = [
 requires-dist = [
     { name = "beautifulsoup4" },
     { name = "capstone" },
+    { name = "cryptography", specifier = ">=46.0.5" },
     { name = "dnfile" },
     { name = "frida" },
     { name = "grpcio" },
