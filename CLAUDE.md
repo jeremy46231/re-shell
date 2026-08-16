@@ -27,7 +27,7 @@ This environment is organized into a **general-purpose core** (this file) and **
 All reverse engineering work products must go in one of two locations:
 
 - **`tmp/`** -- Intermediate and throwaway side products: decompiled source, disassembly output, extracted contents, unpacked resources, Ghidra projects, scratch scripts, etc. This directory is in `.gitignore` and will not be committed. Create subdirectories freely (e.g., `tmp/ghidra_project/`, `tmp/extracted_sample/`).
-- **`artifacts/<identifier>/`** -- Final, requested deliverables: analysis reports, annotated code snippets, hook scripts, YARA rules, patch files, or anything the user explicitly asks to keep. Use a meaningful identifier as the subdirectory name (e.g., package namespace `com.example.app`, sample hash, malware family name). This directory is tracked by git.
+- **`artifacts/<identifier>/`** -- Final, requested deliverables: analysis reports, annotated code snippets, hook scripts, YARA rules, patch files, or anything the user explicitly asks to keep. Use a meaningful identifier as the subdirectory name (e.g., package namespace `com.example.app`, sample hash, malware family name). This directory is also in `.gitignore`: the difference from `tmp/` is durability, not tracking. Work here is meant to survive cleanup of `tmp/` and to be the thing handed back to the user, but it stays local unless the user asks to publish it elsewhere.
 
 When running tools, always direct output into `tmp/` rather than the repo root. Examples:
 
