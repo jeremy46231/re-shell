@@ -166,16 +166,25 @@
               pkgs.unzip # ZIP extraction
               pkgs.p7zip # 7-Zip archive tool
               pkgs.file # File type identification
+              pkgs.curl # HTTP client (fetching firmware packages, vendor manifests)
               pkgs.jq # JSON processor
               pkgs.sqlite # SQLite CLI (inspect app databases)
               pkgs.openssl # Certificate and crypto utilities
               pkgs.upx # Universal executable packer/unpacker
               pkgs.unixtools.xxd # Hex dump utility
               pkgs.exiftool # Read/write metadata in files (images, firmware, etc.)
+              pkgs.innoextract # Extract Inno Setup installers (common for FW update tools)
+              pkgs.asar # Pack/unpack Electron app.asar archives
+
+              # --- General: display / monitor firmware ---
+              pkgs.v4l-utils # provides edid-decode (parse/validate EDID + CTA/DisplayID exts)
+              pkgs.ddcutil # Query/set monitor settings over DDC/CI (VCP codes)
+              pkgs.i2c-tools # i2ctransfer/i2cdetect - raw DDC/CI frames (needed for 16-bit VCP codes)
 
               # --- General: USB ---
               pkgs.libusb1 # libusb-1.0 backend for pyusb (raw control/bulk transfers)
-              pkgs.usbutils # lsusb -v for descriptor dumps
+              pkgs.usbutils # lsusb -v for descriptor dumps, usbhid-dump for HID descriptors
+              pkgs.hid-tools # hid-decode/hid-recorder/hid-replay - parse and record HID reports
 
               # --- General: password / hash cracking ---
               pkgs.hashcat # GPU/CPU password recovery
@@ -241,6 +250,10 @@
               # --- Windows: signing & verification ---
               pkgs.osslsigncode # Verify/manipulate Authenticode signatures on PE files
 
+              # --- Windows: running Windows binaries ---
+              pkgs.wineWow64Packages.stable # Wine, 64-bit build that also runs 32-bit binaries
+              pkgs.winetricks # Install DLLs/runtimes and tweak Wine prefixes
+
               # --- Web: protocol buffers & gRPC ---
               pkgs.protobuf # Protobuf compiler (protoc)
               pkgs.protoscope # Inspect raw protobuf wire format without .proto files
@@ -292,6 +305,14 @@
               # Expose wordlists/rules as a stable dir-of-symlinks at the repo root
               # so cracking tools don't need /nix/store paths. Symlink, gitignored.
               ln -sfn ${wordlists} "$PWD/wordlists"
+              # Ghidra/JPype spill large temp files into java.io.tmpdir. The default
+              # /tmp is a small shared tmpfs, and pyghidra crashes there on big
+              # programs, so keep the JVM scratch dir repo-local (gitignored).
+              mkdir -p "$PWD/tmp/jtmp"
+              case "''${_JAVA_OPTIONS-}" in
+                *-Djava.io.tmpdir=*) ;; # already set (nested shell, or the user's own choice)
+                *) export _JAVA_OPTIONS="-Djava.io.tmpdir=$PWD/tmp/jtmp''${_JAVA_OPTIONS:+ $_JAVA_OPTIONS}" ;;
+              esac
               echo "RE environment loaded. See CLAUDE.md and .claude/skills/ for tool documentation."
             '';
           };

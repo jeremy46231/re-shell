@@ -47,6 +47,18 @@ This skill covers Windows-specific RE tools available in the dev shell. For gene
 | cabextract | `cabextract archive.cab` | Extract Microsoft Cabinet (.cab) archives |
 | innoextract | `innoextract setup.exe` | Extract files from Inno Setup installers without running them |
 
+## Running Windows Binaries
+
+| Tool | Command | Description |
+|------|---------|-------------|
+| Wine | `WINEPREFIX=$PWD/tmp/wineprefix wine setup.exe` | Run Windows executables on Linux (32- and 64-bit) |
+| Wine | `wineboot -u` / `winecfg -v win11` | Create or update a prefix; set the reported Windows version |
+| Wine | `wine reg add <key> /v <name> /d <value> /f` | Edit the registry of a prefix without a GUI |
+| winetricks | `winetricks vcrun2019 dotnet48` | Install redistributables and runtimes into a prefix |
+
+Always point `WINEPREFIX` at a directory under `tmp/`, one prefix per target, so a failed
+install is a `rm -rf` away and never touches `~/.wine`. `WINEDEBUG=-all` silences the noise.
+
 ## Authenticode & Code Signing
 
 | Tool | Command | Description |
@@ -109,6 +121,48 @@ upx -d packed.exe -o tmp/unpacked.exe
 # Verify unpacking
 diec tmp/unpacked.exe
 ```
+
+### Unpacking a vendor installer under Wine
+
+Carving an installer overlay gives you the file data but not the file names. Running the
+installer in a throwaway prefix gives a correct tree, and it is usually faster:
+
+```sh
+export WINEPREFIX=$PWD/tmp/wineprefix WINEDEBUG=-all
+wineboot -u && winecfg -v win11
+wine setup.exe --mode unattended --unattendedmodeui none --eula_choice eula_accepted
+find $WINEPREFIX/drive_c -maxdepth 4 -iname '*<product>*'
+```
+
+The `--mode unattended` flags are the BitRock/InstallBuilder ones; NSIS uses `/S` and Inno
+Setup uses `/VERYSILENT` (prefer `innoextract` for Inno). Identify BitRock by the string
+`::bitrock_tcl_is_using_only_s32_dll_path` in `.text`.
+
+Installers that gate on the OS version read the registry rather than trusting `winecfg`.
+Wine's `win11` mode still reports build 22000, so a Windows 11 only installer needs:
+
+```sh
+wine reg add 'HKLM\Software\Microsoft\Windows NT\CurrentVersion' /v CurrentBuild       /d 26100 /f
+wine reg add 'HKLM\Software\Microsoft\Windows NT\CurrentVersion' /v CurrentBuildNumber /d 26100 /f
+```
+
+For an Electron product, unpack the payload and recover the original sources if the build
+shipped its webpack source maps:
+
+```sh
+asar extract "$WINEPREFIX/drive_c/Program Files/<Vendor>/<App>/resources/app.asar" tmp/app/
+python3 -c "
+import json, pathlib
+m = json.load(open('tmp/app/main.js.map'))
+for name, src in zip(m['sources'], m['sourcesContent']):
+    p = pathlib.Path('tmp/app_src') / name.lstrip('./')
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(src or '')
+"
+```
+
+`sourcesContent` holds the pre-minification TypeScript verbatim, including any endpoints and
+credentials the vendor compiled into the app config.
 
 ### Windows malware triage
 

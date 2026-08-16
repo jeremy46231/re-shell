@@ -70,11 +70,33 @@ Discipline-specific tools are documented in their respective skill files. The to
 |------|---------|-------------|
 | YARA | `yara rules.yar target/` | Match file patterns using YARA rules for malware identification |
 
+### Display / Monitor Firmware
+
+| Tool | Command | Description |
+|------|---------|-------------|
+| edid-decode | `edid-decode slot.bin` | Parse and validate EDID base blocks plus CTA-861 / DisplayID extensions |
+| ddcutil | `ddcutil capabilities` / `ddcutil getvcp 0x60` | Query and set monitor settings over DDC/CI (VCP codes); requires a real attached display |
+| i2c-tools | `i2ctransfer -y N w5@0x37 ...` | Raw I2C frames; needed for 16-bit/vendor DDC/CI opcodes ddcutil won't emit |
+
+Both need the `i2c-dev` kernel module loaded (`sudo modprobe i2c-dev`) and RW access to
+`/dev/i2c-*`. On NixOS, `hardware.i2c.enable = true;` loads it and grants the `i2c` group access.
+
 ### USB
 
 | Tool | Command | Description |
 |------|---------|-------------|
 | usbutils | `lsusb -v -d 2e1a:` | Dump USB descriptors (configs, interfaces, endpoints) |
+| usbutils | `usbhid-dump -d 2e1a:` | Dump raw HID report descriptors straight from the device |
+| hid-tools | `hid-decode /sys/class/hidraw/hidraw0/device/report_descriptor` | Decode a HID report descriptor into named usages and report layouts |
+| hid-tools | `hid-recorder /dev/hidraw0` | Record live HID reports (descriptor plus timestamped traffic) |
+| hid-tools | `hid-replay recording.hid` | Replay a recording through a virtual uhid device |
+
+A vendor device often exposes several `/dev/hidraw*` nodes. Pick the one whose report
+descriptor starts with a vendor-defined usage page (`06 XX ff`); `hid-decode` names it for you.
+Reading and writing hidraw needs permission on the node: run as root, or add a udev rule such as
+`SUBSYSTEM=="hidraw", ATTRS{idVendor}=="14ed", ATTRS{idProduct}=="1012", MODE="0660", GROUP="users"`.
+Plain `open()` plus `select()` on the hidraw node is enough for feature-free report I/O; no
+extra Python binding is needed.
 
 Raw USB from Python uses `pyusb` over the libusb-1.0 backend. `ctypes.util.find_library`
 finds nothing on NixOS, so the dev shell exports `LIBUSB1_SO`; pass it explicitly:
@@ -116,13 +138,15 @@ Wordlists and rules are exposed as a stable dir-of-symlinks at `wordlists/` in t
 
 ### General Utilities
 
-`unzip`, `7z` (p7zip), `file`, `jq`, `sqlite3`, `openssl` -- standard tools for archive extraction, file identification, JSON processing, database inspection, and certificate handling.
+`unzip`, `7z` (p7zip), `file`, `curl`, `jq`, `sqlite3`, `openssl` -- standard tools for archive extraction, file identification, HTTP fetching, JSON processing, database inspection, and certificate handling.
 
 | Tool | Command | Description |
 |------|---------|-------------|
 | UPX | `upx -d packed.exe` | Decompress executables packed with UPX |
 | xxd | `xxd binary` | Hex dump / reverse hex dump utility |
 | exiftool | `exiftool file` | Read/write embedded metadata (images, documents, firmware) |
+| innoextract | `innoextract -e -d out setup.exe` | Extract Inno Setup installers (common packaging for vendor firmware update tools) |
+| asar | `asar extract app.asar tmp/app/` | Unpack Electron `app.asar` archives (`asar list` to inspect first) |
 | uv | `uv add <pkg>` | Python package manager; add dependencies to pyproject.toml and uv.lock, then `direnv reload` to rebuild |
 | npm | `npm install <pkg>` | Node.js package manager; add dependencies to package.json and package-lock.json, then `direnv reload` to rebuild |
 
@@ -165,7 +189,17 @@ ghidra-analyzeHeadless tmp/ghidra_project ProjectName -import binary -postScript
 
 `pyghidra.start()` requires `GHIDRA_INSTALL_DIR` to point at the Ghidra install. The dev shell sets this automatically (along with `GHIDRA_JAVA_HOME`), so `import pyghidra; pyghidra.start()` works directly -- no manual `export GHIDRA_INSTALL_DIR=...` prefix needed.
 
+The shell also exports `_JAVA_OPTIONS=-Djava.io.tmpdir=$PWD/tmp/jtmp`, which moves JVM scratch
+files off the shared `/tmp` tmpfs. Without it, `pyghidra.start()` fails on large programs. Every
+`java` process prints a `Picked up _JAVA_OPTIONS:` line to stderr as a result; ignore it.
+
+One thing the shell cannot set for you: raise the Python recursion limit **before**
+`pyghidra.start()`, or JPype's type construction hits the default limit and aborts.
+
 ```python
+import sys
+sys.setrecursionlimit(100000)
+
 import pyghidra
 
 # Start the Ghidra JVM (once per session)
