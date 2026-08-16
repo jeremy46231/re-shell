@@ -193,6 +193,11 @@
               pkgs.hashcat # GPU/CPU password recovery
               pkgs.john # John the Ripper (Jumbo) password cracker
 
+              # --- General: FPGA bitstream & netlist analysis ---
+              pkgs.trellis # ecpunpack/ecppack: Lattice ECP5 bitstream <-> text config
+              pkgs.yosys # Netlist navigation: select cones, submod, techmap, eval, sat
+              pkgs.hal-hardware-analyzer # Netlist RE framework (DANA, resynthesis, FSM)
+
               # --- General: embedded / RP2040-RP2350 (Pico) firmware ---
               pkgs.picotool # Inspect/convert RP2 UF2 firmware, read chip info
               pkgs.pico-sdk # Raspberry Pi Pico SDK (PICO_SDK_PATH set in env)

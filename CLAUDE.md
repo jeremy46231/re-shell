@@ -120,6 +120,35 @@ Wordlists and rules are exposed as a stable dir-of-symlinks at `wordlists/` in t
 | hashcat | `hashcat -m 0 -a 0 hash.txt wordlists/rockyou.txt -r wordlists/best64.rule` | GPU/CPU password recovery |
 | john | `john --wordlist=wordlists/rockyou.txt hash.txt` | John the Ripper (Jumbo); also bundles `*2john` converters (e.g. `zip2john`) |
 
+### FPGA Bitstream Analysis
+
+| Tool | Command | Description |
+|------|---------|-------------|
+| Project Trellis | `ecpunpack in.bit out.config` | Unpack a Lattice ECP5 bitstream into a text config naming every tile, routing arc, and config word (handles compressed bitstreams) |
+| Project Trellis | `ecppack in.config out.bit` | Repack a text config into a bitstream |
+| Project Trellis | `ecpbram`, `ecppll` | Patch block-RAM contents; compute PLL parameters |
+| yosys | `yosys -p "read_verilog nl.v; ..."` | Netlist navigation: `select` cones (`%cie` stops at FFs = one pipeline stage), `submod`, `techmap`, `eval`, `sat` |
+| HAL | `hal` (pkg `hal-hardware-analyzer`) | Netlist RE framework: DANA register grouping, `resynthesis`, `netlist_preprocessing`, `solve_fsm` |
+
+The text config gives resource usage, I/O standards, and primitive modes without
+any netlist work. I/O standards are the fastest route to identifying external
+interfaces: SSTL15 implies DDR3, and the absence of differential inputs proves a
+part cannot receive TMDS. Note that the config carries block-RAM *settings*
+(`WID`, `CSDECODE`) but not block-RAM *contents*.
+
+**Never count instances by counting `enum:` lines** -- one block RAM or pin spans
+several tiles and each repeats the setting (gives 116 BRAMs on a 56-BRAM part).
+Count real hardware via the `pytrellis` routing graph instead. `pytrellis` is
+built for one specific Python version and needs *its own* database, or it fails
+with `RuntimeError: No such node`; its maps iterate as keys, not pairs.
+
+HAL needs structural Verilog plus a gate library (no BLIF/JSON frontend) and
+ships no Lattice library. Its `module_identification` plugin -- the one that finds
+adders and constant multipliers -- supports iCE40 and Xilinx only. yosys
+`fsm_detect`/`fsm_extract`/`memory_collect` produce *zero* output on a flattened
+netlist. Use `sat` as a fast falsifier, not a prover: refuting a wrong constant
+takes under a second, proving the right one may not finish.
+
 ### Embedded / RP2040-RP2350 (Pico) Firmware
 
 | Tool | Command | Description |
