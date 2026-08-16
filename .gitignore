@@ -13,6 +13,9 @@
 # Analysis artifacts
 /artifacts
 
+# Samples under analysis (installers, firmware, dumps)
+/inputs
+
 # Things to be reverse engineered
 *.apk
 *.xapk
