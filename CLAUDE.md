@@ -24,12 +24,22 @@ This environment is organized into a **general-purpose core** (this file) and **
 
 ## Output Directory Convention
 
-All reverse engineering work products must go in one of two locations:
+Every path in this section is relative to the working directory, meaning the directory the dev
+shell was entered from. That is where the shellHook puts `wordlists` and `tmp/jtmp`, so it is
+also where everything below belongs. Upstream enters the shell from the checkout itself, which
+makes the working directory and the repo root the same place. This checkout is arranged
+differently: `flake.nix` and this file live in `re-shell/`, the shell is entered from its parent
+via `./re`, and `inputs/`, `tmp/`, `artifacts/`, and `wordlists` sit alongside `re-shell/`
+rather than inside it. Resolve the paths below against the working directory and both layouts
+are correct.
 
-- **`tmp/`** -- Intermediate and throwaway side products: decompiled source, disassembly output, extracted contents, unpacked resources, Ghidra projects, scratch scripts, etc. This directory is in `.gitignore` and will not be committed. Create subdirectories freely (e.g., `tmp/ghidra_project/`, `tmp/extracted_sample/`).
-- **`artifacts/<identifier>/`** -- Final, requested deliverables: analysis reports, annotated code snippets, hook scripts, YARA rules, patch files, or anything the user explicitly asks to keep. Use a meaningful identifier as the subdirectory name (e.g., package namespace `com.example.app`, sample hash, malware family name). This directory is also in `.gitignore`: the difference from `tmp/` is durability, not tracking. Work here is meant to survive cleanup of `tmp/` and to be the thing handed back to the user, but it stays local unless the user asks to publish it elsewhere.
+Samples under analysis go in one place, and work products in one of two others:
 
-When running tools, always direct output into `tmp/` rather than the repo root. Examples:
+- **`inputs/`** -- Vendor installers, firmware images, dumps, APKs, and anything else handed to you for analysis. Large, local, and frequently copyrighted, so it never belongs in a tree.
+- **`tmp/`** -- Intermediate and throwaway side products: decompiled source, disassembly output, extracted contents, unpacked resources, Ghidra projects, scratch scripts, etc. Nothing here is tracked by git. Create subdirectories freely (e.g., `tmp/ghidra_project/`, `tmp/extracted_sample/`).
+- **`artifacts/<identifier>/`** -- Final, requested deliverables: analysis reports, annotated code snippets, hook scripts, YARA rules, patch files, or anything the user explicitly asks to keep. Use a meaningful identifier as the subdirectory name (e.g., package namespace `com.example.app`, sample hash, malware family name). Also untracked: the difference from `tmp/` is durability, not tracking. Work here is meant to survive cleanup of `tmp/` and to be the thing handed back to the user, but it stays local unless the user asks to publish it elsewhere.
+
+When running tools, always direct output into `tmp/` rather than the working directory. Examples:
 
 ```sh
 ghidra  # save project to tmp/ghidra_<sample>/
@@ -37,7 +47,7 @@ r2 -A sample.bin  # any output files go to tmp/
 binwalk -e firmware.bin -C tmp/binwalk_firmware/
 ```
 
-Never leave tool output in the repo root or in ad-hoc directories outside these two locations.
+Never leave tool output in the working directory or in ad-hoc directories outside these locations.
 
 ## Environment Structure
 
@@ -130,7 +140,7 @@ switches USB modes, so match on all of the identities it can present.
 
 ### Password / Hash Cracking
 
-Wordlists and rules are exposed as a stable dir-of-symlinks at `wordlists/` in the repo root (gitignored, points into the Nix store) so no `/nix/store` spelunking is needed. Contents: `wordlists/rockyou.txt`, `wordlists/seclists/` (full SecLists tree), `wordlists/best64.rule`, `wordlists/hashcat-rules/`, `wordlists/john-rules/`, `wordlists/john-password.lst`. To add more, edit the `wordlists` linkFarm in `flake.nix`.
+Wordlists and rules are exposed as a stable dir-of-symlinks at `wordlists/` in the working directory (untracked, points into the Nix store) so no `/nix/store` spelunking is needed. Contents: `wordlists/rockyou.txt`, `wordlists/seclists/` (full SecLists tree), `wordlists/best64.rule`, `wordlists/hashcat-rules/`, `wordlists/john-rules/`, `wordlists/john-password.lst`. To add more, edit the `wordlists` linkFarm in `flake.nix`.
 
 | Tool | Command | Description |
 |------|---------|-------------|

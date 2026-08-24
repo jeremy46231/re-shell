@@ -8,8 +8,8 @@ A Nix flake-based reverse engineering environment designed for use with [Claude 
 # Enter the environment (or use direnv)
 nix develop
 
-# Drop a file into the repo root and start Claude Code
-cp ~/Downloads/suspicious.exe .
+# Drop a file into inputs/ and start Claude Code
+cp ~/Downloads/suspicious.exe inputs/
 claude
 
 # Then just ask:
@@ -40,5 +40,9 @@ The environment is self-modifying. If an analysis needs a tool that isn't instal
 
 ## Output directories
 
+- **`inputs/`** -- Samples under analysis: installers, firmware, dumps (gitignored)
 - **`tmp/`** -- Intermediate work products (gitignored)
 - **`artifacts/`** -- Final deliverables like reports and analysis notes (gitignored)
+
+These are relative to the directory the shell is entered from, which is the checkout itself
+unless you have arranged otherwise.
