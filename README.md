@@ -45,4 +45,5 @@ The environment is self-modifying. If an analysis needs a tool that isn't instal
 - **`artifacts/`** -- Final deliverables like reports and analysis notes (gitignored)
 
 These are relative to the directory the shell is entered from, which is the checkout itself
-unless you have arranged otherwise.
+unless you have arranged otherwise. See `CLAUDE.md` for the per-target layout this clone uses,
+where each device gets its own directory alongside the checkout.
