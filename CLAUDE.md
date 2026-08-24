@@ -1,6 +1,11 @@
 # Reverse Engineering Environment
 
-Multi-discipline Nix flake-based development shell for reverse engineering. Enter the environment with `nix develop` or via direnv.
+Multi-discipline Nix flake-based development shell for reverse engineering. Enter the
+environment with `nix develop` or via direnv, or with the `re` launcher in this checkout:
+`./re` for an interactive shell, `./re <command>` to run one command inside it. The workspace
+root symlinks to it, and invoking it either way leaves the working directory at the workspace
+root. `re` also re-asserts the dev shell's PATH after your shell's rc files run, without which
+a `brew shellenv` line shadows dozens of pinned tools.
 
 ## Skill System
 
