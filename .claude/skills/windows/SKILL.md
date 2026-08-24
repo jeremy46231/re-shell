@@ -67,6 +67,27 @@ the product code, and `CustomAction` for the code the installer runs.
 Always point `WINEPREFIX` at a directory under `tmp/`, one prefix per target, so a failed
 install is a `rm -rf` away and never touches `~/.wine`. `WINEDEBUG=-all` silences the noise.
 
+On macOS the flake ships no wine, since nixpkgs does not build it for darwin. CrossOver
+covers the same ground if it is installed. The dev shell appends
+`/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin` to `PATH` when that
+directory exists, so `wine`, `wineserver`, `cxbottle`, and `regedit` are available directly.
+It is appended rather than prepended because CrossOver bundles its own `cabextract` and
+`unrar`, which would otherwise shadow the nixpkgs ones.
+
+| Tool | Command | Description |
+|------|---------|-------------|
+| cxbottle | `cxbottle --bottle <name> --create --template win11_64` | Create a bottle; templates include win7_64, win8_64, win10_64, win11_64, winxp |
+| wine | `wine --bottle <name> --cx-app setup.exe` | Run a Windows executable inside that bottle |
+| wine | `wine --bottle <name> --cx-app reg.exe add <key> /v <name> /d <value> /f` | Edit the bottle's registry |
+| cxbottle | `cxbottle --bottle <name> --delete --force` | Remove the bottle and everything installed in it |
+
+A bottle is an ordinary wine prefix at `~/Library/Application Support/CrossOver/Bottles/<name>`,
+with the usual `drive_c`, `system.reg`, and `user.reg`, so the registry and file-tree steps
+below carry over and only the invocation changes. Windows x86-64 binaries run through
+Rosetta, which must be installed. A fresh win10_64 bottle costs about 310 MB, so delete
+per-target bottles the way you would `rm -rf` a prefix. `winetricks` is Linux-only in this
+flake and has not been tested against a bottle; CrossOver installs runtimes itself.
+
 ## Authenticode & Code Signing
 
 | Tool | Command | Description |
@@ -139,6 +160,15 @@ export WINEPREFIX=$PWD/tmp/wineprefix WINEDEBUG=-all
 wineboot -u && winecfg -v win11
 wine setup.exe --mode unattended --unattendedmodeui none --eula_choice eula_accepted
 find $WINEPREFIX/drive_c -maxdepth 4 -iname '*<product>*'
+```
+
+The same run under CrossOver on macOS:
+
+```sh
+B=<product>
+cxbottle --bottle $B --create --template win11_64
+wine --bottle $B --cx-app setup.exe --mode unattended --unattendedmodeui none --eula_choice eula_accepted
+find ~/Library/Application\ Support/CrossOver/Bottles/$B/drive_c -maxdepth 4 -iname '*<product>*'
 ```
 
 The `--mode unattended` flags are the BitRock/InstallBuilder ones; NSIS uses `/S` and Inno

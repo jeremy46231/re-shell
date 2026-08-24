@@ -104,6 +104,98 @@
           # Build the virtualenv from workspace dependencies
           venv = pythonSet.mkVirtualEnv "re-env" workspace.deps.default;
 
+          # nixpkgs gates these two to linux, but both build on darwin. Upstream
+          # marks the platforms, not the code: pe-bear needs nothing beyond
+          # lifting the gate, and detect-it-easy needs a different Qt plus a
+          # couple of build fixes.
+          allowDarwin =
+            p:
+            p.overrideAttrs (o: {
+              meta = o.meta // {
+                platforms = o.meta.platforms ++ [
+                  "x86_64-darwin"
+                  "aarch64-darwin"
+                ];
+              };
+            });
+
+          # Upstream targets Qt 5, whose QtScript JSC interpreter segfaults on
+          # arm64 the moment a signature script runs; DIE's own build_mac.sh
+          # forces x86_64 when Qt is 5.15.2 for the same reason. Under Qt 6 the
+          # scripting goes through QJSEngine instead, which works. Only the
+          # console tool is built: the GUI is the bulk of the compile, and
+          # pe-bear and imhex already cover what it does.
+          detect-it-easy =
+            if pkgs.stdenv.hostPlatform.isLinux then
+              pkgs.detect-it-easy
+            else
+              allowDarwin (
+                pkgs.detect-it-easy.overrideAttrs (o: {
+                  # systemdLibs is gone with the qt5 inputs; it pulls in kmod,
+                  # which does not compile on darwin
+                  buildInputs = [
+                    pkgs.qt6.qtbase
+                    pkgs.qt6.qtsvg
+                    pkgs.qt6.qtdeclarative # QJSEngine, in place of QtScript
+                    pkgs.qt6.qt5compat # QTextCodec, wanted by Formats/xbinary.pri
+                    pkgs.graphite2
+                    pkgs.freetype
+                    pkgs.icu
+                    pkgs.krb5
+                  ];
+                  nativeBuildInputs = [
+                    pkgs.qt6.qmake
+                    pkgs.qt6.wrapQtAppsHook
+                    pkgs.imagemagick
+                  ];
+
+                  postPatch = (o.postPatch or "") + ''
+                    # the subdirs target carries no ordering, so a parallel make
+                    # links console_source before build_libs has produced the
+                    # vendored static libs
+                    echo 'CONFIG += ordered' >> die_source.pro
+
+                    substituteInPlace die_source.pro \
+                      --replace-fail 'SUBDIRS         += gui_source' "" \
+                      --replace-fail 'SUBDIRS         += lite_source' ""
+
+                    # vendored zlib defines fdopen() away under TARGET_OS_MAC, which
+                    # apple's stdio.h then chokes on
+                    substituteInPlace XArchive/3rdparty/zlib/src/zutil.h \
+                      --replace-fail '#if defined(MACOS) || defined(TARGET_OS_MAC)' '#if defined(MACOS)'
+                  '';
+
+                  # install.sh only knows linux layouts; on darwin XOptions
+                  # resolves DIE's data as <dir of executable>/../Resources
+                  installPhase = ''
+                    runHook preInstall
+                    mkdir -p $out/bin $out/Resources/signatures
+                    cp build/release/diec $out/bin/
+                    cp -Rf XStyles/qss XInfoDB/info Detect-It-Easy/db Detect-It-Easy/db_custom \
+                           images XYara/yara_rules $out/Resources/
+                    cp -f signatures/crypto.db $out/Resources/signatures/
+                    runHook postInstall
+                  '';
+                  postInstall = "";
+
+                  meta = o.meta // {
+                    mainProgram = "diec";
+                  };
+                })
+              );
+
+          # cmake emits an .app bundle on darwin, so nothing lands on PATH by itself
+          pe-bear =
+            if pkgs.stdenv.hostPlatform.isLinux then
+              pkgs.pe-bear
+            else
+              let
+                app = allowDarwin pkgs.pe-bear;
+              in
+              pkgs.writeShellScriptBin "PE-bear" ''
+                exec "${app}/bin/PE-bear.app/Contents/MacOS/PE-bear" "$@"
+              '';
+
           # A dir-of-symlinks of common wordlists/rules so cracking tools don't
           # require /nix/store spelunking. Linked into $repoRoot/wordlists by the
           # shellHook below. Add more entries here as needed.
@@ -179,15 +271,9 @@
               pkgs.innoextract # Extract Inno Setup installers (common for FW update tools)
               pkgs.asar # Pack/unpack Electron app.asar archives
 
-              # --- General: display / monitor firmware ---
-              pkgs.v4l-utils # provides edid-decode (parse/validate EDID + CTA/DisplayID exts)
-              pkgs.ddcutil # Query/set monitor settings over DDC/CI (VCP codes)
-              pkgs.i2c-tools # i2ctransfer/i2cdetect - raw DDC/CI frames (needed for 16-bit VCP codes)
-
               # --- General: USB ---
               pkgs.libusb1 # libusb-1.0 backend for pyusb (raw control/bulk transfers)
               pkgs.usbutils # lsusb -v for descriptor dumps, usbhid-dump for HID descriptors
-              pkgs.hid-tools # hid-decode/hid-recorder/hid-replay - parse and record HID reports
 
               # --- General: password / hash cracking ---
               pkgs.hashcat # GPU/CPU password recovery
@@ -234,11 +320,10 @@
               pkgs.simg2img # Sparse image to raw image converter
               pkgs.sdat2img # .dat sparse data to ext4 image converter
               pkgs.payload-dumper-go # Extract partitions from Android OTA payloads
-              pkgs.imgpatchtools # Manipulate Android OTA archives
 
               # --- Windows: PE analysis & inspection ---
-              pkgs.pe-bear # GUI PE viewer for headers, sections, imports, exports
-              pkgs.detect-it-easy # Identify compilers, packers, protectors (diec)
+              pe-bear # GUI PE viewer for headers, sections, imports, exports
+              detect-it-easy # Identify compilers, packers, protectors (diec)
               pkgs.imhex # Hex editor with pattern language and PE templates
 
               # --- Windows: .NET decompilation ---
@@ -259,10 +344,6 @@
               # --- Windows: signing & verification ---
               pkgs.osslsigncode # Verify/manipulate Authenticode signatures on PE files
 
-              # --- Windows: running Windows binaries ---
-              pkgs.wineWow64Packages.stable # Wine, 64-bit build that also runs 32-bit binaries
-              pkgs.winetricks # Install DLLs/runtimes and tweak Wine prefixes
-
               # --- Web: protocol buffers & gRPC ---
               pkgs.protobuf # Protobuf compiler (protoc)
               pkgs.protoscope # Inspect raw protobuf wire format without .proto files
@@ -278,6 +359,25 @@
 
               # --- Web: HTML parsing ---
               pkgs.pup # CLI HTML parser (like jq for HTML)
+            ]
+            ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+              # Linux-only in nixpkgs: these either bind to kernel interfaces
+              # (i2c-dev, v4l2, hidraw) or have no darwin build.
+
+              # --- General: USB ---
+              pkgs.hid-tools # hid-decode/hid-recorder/hid-replay - parse and record HID reports
+
+              # --- General: display / monitor firmware ---
+              pkgs.v4l-utils # provides edid-decode (parse/validate EDID + CTA/DisplayID exts)
+              pkgs.ddcutil # Query/set monitor settings over DDC/CI (VCP codes)
+              pkgs.i2c-tools # i2ctransfer/i2cdetect - raw DDC/CI frames (needed for 16-bit VCP codes)
+
+              # --- Android: image & OTA tools ---
+              pkgs.imgpatchtools # Manipulate Android OTA archives
+
+              # --- Windows: running Windows binaries ---
+              pkgs.wineWow64Packages.stable # Wine, 64-bit build that also runs 32-bit binaries
+              pkgs.winetricks # Install DLLs/runtimes and tweak Wine prefixes
             ];
 
             npmDeps = nodeModules;
@@ -294,7 +394,7 @@
 
               # pyusb resolves its backend with ctypes.util.find_library, which finds
               # nothing on NixOS. Point it at the libusb-1.0 shared object directly.
-              LIBUSB1_SO = "${pkgs.libusb1}/lib/libusb-1.0.so";
+              LIBUSB1_SO = "${pkgs.libusb1}/lib/libusb-1.0${pkgs.stdenv.hostPlatform.extensions.sharedLibrary}";
 
               # Don't let uv create/sync its own venv -- Nix manages it
               UV_NO_SYNC = "1";
@@ -322,6 +422,19 @@
                 *-Djava.io.tmpdir=*) ;; # already set (nested shell, or the user's own choice)
                 *) export _JAVA_OPTIONS="-Djava.io.tmpdir=$PWD/tmp/jtmp''${_JAVA_OPTIONS:+ $_JAVA_OPTIONS}" ;;
               esac
+              ${lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
+                # nixpkgs has no wine for darwin, so CrossOver is the only way to run
+                # windows binaries here. Appended, not prepended: it ships its own
+                # cabextract and unrar that would otherwise shadow ours.
+                cxbin="/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin"
+                if [ -d "$cxbin" ]; then
+                  case ":$PATH:" in
+                    *":$cxbin:"*) ;;
+                    *) export PATH="$PATH:$cxbin" ;;
+                  esac
+                fi
+                unset cxbin
+              ''}
               echo "RE environment loaded. See CLAUDE.md and .claude/skills/ for tool documentation."
             '';
           };

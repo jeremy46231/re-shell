@@ -47,6 +47,15 @@ The dev shell is defined in `flake.nix` and organized into tool categories. Pyth
 
 Discipline-specific tools are documented in their respective skill files. The tools below are available across all RE disciplines.
 
+Some tools are Linux-only in nixpkgs and the flake omits them on darwin: the display/monitor
+tools (`edid-decode`, `ddcutil`, `i2c-tools`), `hid-tools`, `imgpatchtools`, and `wine` with
+`winetricks`. Check `command -v` before reaching for those in a session on macOS.
+
+`PE-bear` and `diec` are marked Linux-only upstream but the flake overrides them onto darwin,
+so both are on PATH there. On darwin `diec` is built against Qt 6, because Qt 5's QtScript
+interpreter segfaults on arm64 as soon as a signature script runs. The DIE GUI (`die`) is not
+built on darwin; only the `diec` console tool is.
+
 ### Native Binary Reverse Engineering
 
 | Tool | Command | Description |
@@ -97,6 +106,14 @@ Reading and writing hidraw needs permission on the node: run as root, or add a u
 `SUBSYSTEM=="hidraw", ATTRS{idVendor}=="14ed", ATTRS{idProduct}=="1012", MODE="0660", GROUP="users"`.
 Plain `open()` plus `select()` on the hidraw node is enough for feature-free report I/O; no
 extra Python binding is needed.
+
+On macOS none of `/dev/hidraw*`, `/dev/i2c-*`, or udev exists, and `system_profiler
+SPUSBDataType` cannot be trusted: it prints nothing and exits 0 even with devices attached.
+`lsusb` does work there (usbutils builds against libusb), and `ioreg` is the reliable
+fallback: `ioreg -p IOUSB -w0 -l` for the device tree, `ioreg -c IOHIDDevice -r -l` for HID
+report descriptors (the `ReportDescriptor` property). A device the kernel has already matched
+keeps its interface, and macOS has no equivalent of Linux's driver detach, so raw transfers to
+a class-driver device mean passing it through to a Linux VM.
 
 Raw USB from Python uses `pyusb` over the libusb-1.0 backend. `ctypes.util.find_library`
 finds nothing on NixOS, so the dev shell exports `LIBUSB1_SO`; pass it explicitly:
